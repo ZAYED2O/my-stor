@@ -1,0 +1,12 @@
+{
+  "experimentalServices": {
+    "frontend": {
+      "src": "frontend",
+      "type": "nextjs"
+    },
+    "backend": {
+      "src": "_backend",
+      "type": "express"
+    }
+  }
+}
