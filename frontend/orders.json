@@ -1,0 +1,65 @@
+{
+  "orders": [
+    {
+      "id": "ORD-PD97C2IY1",
+      "customerName": "Current User",
+      "customerAddress": "123 Commerce Blvd",
+      "items": [
+        {
+          "id": "1",
+          "name": "Premium Wireless Headphones",
+          "price": 299.99,
+          "rating": 4.8,
+          "image": "🎧",
+          "category": "Electronics",
+          "seller": "Tech Store",
+          "quantity": 1
+        }
+      ],
+      "total": 323.9892,
+      "status": "Pending",
+      "createdAt": "2026-06-26T20:18:25.316Z"
+    },
+    {
+      "id": "ORD-TTLEZQLKX",
+      "customerName": "Current User",
+      "customerAddress": "123 Commerce Blvd",
+      "items": [
+        {
+          "id": "2",
+          "name": "Minimalist Smartwatch",
+          "price": 199.5,
+          "rating": 4.5,
+          "image": "⌚",
+          "category": "Accessories",
+          "seller": "Watch Co.",
+          "quantity": 1
+        }
+      ],
+      "total": 215.46,
+      "status": "Pending",
+      "createdAt": "2026-06-26T20:38:22.610Z"
+    },
+    {
+      "id": "ORD-EGZRCT9H4",
+      "customerName": "خالد  احمد",
+      "customerEmail": "zorox4730@gmail.com",
+      "customerAddress": "123 Commerce Blvd",
+      "items": [
+        {
+          "id": "1",
+          "name": "Premium Wireless Headphones",
+          "price": 299.99,
+          "rating": 4.8,
+          "image": "🎧",
+          "category": "Electronics",
+          "seller": "Tech Store",
+          "quantity": 1
+        }
+      ],
+      "total": 323.9892,
+      "status": "Pending",
+      "createdAt": "2026-06-26T20:47:51.978Z"
+    }
+  ]
+}

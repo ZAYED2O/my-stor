@@ -1,0 +1,28 @@
+{
+  "users": [
+    {
+      "id": "1",
+      "name": "Super Admin",
+      "email": "admin@zayed.com",
+      "password": "admin123",
+      "role": "super_admin",
+      "createdAt": "2026-06-26T20:12:00.000Z"
+    },
+    {
+      "id": "2",
+      "name": "Super Seller",
+      "email": "seller@zayed.com",
+      "password": "seller123",
+      "role": "seller",
+      "createdAt": "2026-06-26T20:12:00.000Z"
+    },
+    {
+      "id": "1782504990145",
+      "name": "خالد  احمد",
+      "email": "zorox4730@gmail.com",
+      "password": "khaled123",
+      "role": "customer",
+      "createdAt": "2026-06-26T20:16:30.145Z"
+    }
+  ]
+}
