@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, ShoppingCart, User, Menu, X, Home, Package, LogIn, UserPlus, Shield, Store } from "lucide-react";
+import { Search, ShoppingCart, User, Menu, X, Home, Package, LogIn, UserPlus, Shield, Store, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useStore } from "@/store/useStore";
 import { useState, useEffect } from "react";
@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 export default function Header() {
   const cart = useStore((state) => state.cart);
   const user = useStore((state) => state.user);
+  const logout = useStore((state) => state.logout);
   const [isMounted, setIsMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -203,6 +204,17 @@ export default function Header() {
                       Seller Dashboard
                     </Link>
                   )}
+                  <button 
+                    onClick={() => {
+                      logout();
+                      closeMobileMenu();
+                      router.push("/");
+                    }}
+                    className="w-full flex items-center gap-3 px-5 py-3.5 text-red-600 hover:bg-red-50 transition-colors font-medium text-sm text-left"
+                  >
+                    <LogOut className="w-5 h-5 text-red-500" />
+                    Sign Out
+                  </button>
                 </>
               ) : (
                 <>

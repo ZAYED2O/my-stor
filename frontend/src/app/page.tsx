@@ -21,20 +21,20 @@ export default function Home() {
 
       <main className="flex-1 w-full max-w-[1500px] mx-auto pb-20">
          {/* Hero Section */}
-         <section className="px-4 md:px-8 py-12">
-            <div className="bg-[#1A233A] rounded-[2rem] p-8 md:p-16 flex flex-col md:flex-row items-center justify-between gap-12 relative overflow-hidden shadow-2xl">
+         <section className="px-4 md:px-8 py-6 md:py-12">
+            <div className="bg-[#1A233A] rounded-2xl md:rounded-[2rem] p-6 sm:p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-12 relative overflow-hidden shadow-2xl">
                <div className="absolute top-0 right-0 w-96 h-96 bg-[#FF7A00] opacity-20 blur-[100px] rounded-full"></div>
                
-               <div className="z-10 max-w-2xl space-y-6">
-                  <h1 className="text-4xl md:text-6xl font-extrabold text-white leading-tight">
+               <div className="z-10 max-w-2xl space-y-4 md:space-y-6 text-center md:text-left">
+                  <h1 className="text-3xl sm:text-4xl md:text-6xl font-extrabold text-white leading-tight">
                      Shop the Best,<br/>
                      <span className="text-[#FF7A00]">Delivered Fast.</span>
                   </h1>
-                  <p className="text-gray-300 text-lg max-w-lg">
+                  <p className="text-gray-300 text-sm sm:text-base md:text-lg max-w-lg mx-auto md:mx-0">
                      ZAYED EXPRESS brings you premium products with unparalleled speed and customer service. Start your journey today.
                   </p>
-                  <div className="pt-4 flex gap-4">
-                     <Link href="/products" className="bg-[#FF7A00] hover:bg-[#FF9900] text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 transition-transform hover:scale-105 shadow-lg shadow-[#FF7A00]/20">
+                  <div className="pt-2 md:pt-4 flex justify-center md:justify-start gap-4">
+                     <Link href="/products" className="bg-[#FF7A00] hover:bg-[#FF9900] text-white px-6 py-3 md:px-8 md:py-4 rounded-xl font-bold flex items-center gap-2 transition-transform hover:scale-105 shadow-lg shadow-[#FF7A00]/20 text-sm sm:text-base">
                         Shop Now <ArrowRight className="w-5 h-5" />
                      </Link>
                   </div>
