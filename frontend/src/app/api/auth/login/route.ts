@@ -1,17 +1,9 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
+import { supabase } from '@/lib/supabase';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-const dbPath = path.join(process.cwd(), 'users.json');
-
-async function getDb() {
-  try {
-    const data = await fs.readFile(dbPath, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    return { users: [] };
-  }
-}
+const JWT_SECRET = process.env.JWT_SECRET || 'ec_zayed_express_jwt_secret_2026';
 
 export async function POST(req: Request) {
   try {
@@ -22,20 +14,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     }
 
-    const db = await getDb();
-    
-    const user = db.users.find((u: any) => u.email === email);
-    
-    if (!user || user.password !== password) {
+    const { data: user, error } = await supabase
+      .from('ec_users')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Supabase error:', error.message);
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    }
+
+    if (!user) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    return NextResponse.json({ 
-      user: { id: user.id, name: user.name, email: user.email, role: user.role || 'customer' },
-      token: 'jwt-mock-token-' + user.id 
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    return NextResponse.json({
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      token
     }, { status: 200 });
 
   } catch (error) {
+    console.error('Login error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

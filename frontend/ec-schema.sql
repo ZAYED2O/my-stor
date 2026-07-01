@@ -1,0 +1,58 @@
+-- EnterpriseCommerce Schema
+-- Run this in the Supabase SQL Editor
+-- Using "ec_" prefix to avoid conflicts with zayed-express-market tables
+
+-- 1. Users table
+CREATE TABLE IF NOT EXISTS ec_users (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'customer',
+  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. Products table
+CREATE TABLE IF NOT EXISTS ec_products (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  price REAL NOT NULL,
+  category TEXT NOT NULL,
+  image TEXT DEFAULT '📦',
+  seller TEXT DEFAULT 'ZAYED EXPRESS',
+  rating REAL DEFAULT 5.0,
+  "acceptedPayments" TEXT DEFAULT '["card","cod","wallet"]',
+  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. Orders table
+CREATE TABLE IF NOT EXISTS ec_orders (
+  id TEXT PRIMARY KEY,
+  "customerName" TEXT NOT NULL DEFAULT 'Guest',
+  "customerEmail" TEXT NOT NULL DEFAULT 'guest@example.com',
+  "customerAddress" TEXT DEFAULT '',
+  items TEXT NOT NULL,
+  total REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Pending',
+  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Seed admin user (password: admin123)
+INSERT INTO ec_users (id, name, email, password, role)
+VALUES (
+  'admin-001',
+  'مدير النظام',
+  'admin@zayed.com',
+  '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+  'super_admin'
+) ON CONFLICT (id) DO NOTHING;
+
+-- Seed initial products
+INSERT INTO ec_products (id, name, price, category, image, seller, rating, "acceptedPayments")
+VALUES
+  ('prod-1', 'Premium Wireless Headphones', 299.99, 'Electronics', '🎧', 'Tech Store', 4.8, '["card","cod","wallet"]'),
+  ('prod-2', 'Minimalist Smartwatch', 199.50, 'Accessories', '⌚', 'Watch Co.', 4.5, '["card","cod","wallet"]'),
+  ('prod-3', 'Ergonomic Office Chair', 450.00, 'Furniture', '🪑', 'FurnishNow', 4.9, '["card"]'),
+  ('prod-4', 'Mechanical Keyboard', 149.99, 'Electronics', '⌨️', 'Tech Store', 4.7, '["card","cod","wallet"]'),
+  ('prod-5', 'Running Sneakers Pro', 89.99, 'Sports', '👟', 'SportZone', 4.6, '["card","cod","wallet"]')
+ON CONFLICT (id) DO NOTHING;

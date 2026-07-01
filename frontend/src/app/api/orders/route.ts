@@ -1,22 +1,5 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
-
-const dbPath = path.join(process.cwd(), 'orders.json');
-
-async function getDb() {
-  try {
-    const data = await fs.readFile(dbPath, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    // If file doesn't exist, return empty db
-    return { orders: [] };
-  }
-}
-
-async function saveDb(db: any) {
-  await fs.writeFile(dbPath, JSON.stringify(db, null, 2));
-}
+import { supabase } from '@/lib/supabase';
 
 export async function POST(req: Request) {
   try {
@@ -27,68 +10,87 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing order details' }, { status: 400 });
     }
 
-    const db = await getDb();
-    
     const newOrder = {
       id: 'ORD-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
       customerName: customerName || 'Guest User',
       customerEmail: customerEmail || 'guest@zayed.com',
       customerAddress: customerAddress || 'No address provided',
-      items,
+      items: JSON.stringify(items),
       total,
       status: status || 'Pending',
-      createdAt: new Date().toISOString()
     };
 
-    db.orders.push(newOrder);
-    await saveDb(db);
+    const { data, error } = await supabase
+      .from('ec_orders')
+      .insert([newOrder])
+      .select()
+      .single();
 
-    return NextResponse.json({ 
-      order: newOrder,
+    if (error) {
+      console.error('Supabase insert order error:', error.message);
+      return NextResponse.json({ error: 'Could not save order' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      order: { ...data, items },
       message: 'Order created successfully'
     }, { status: 201 });
 
   } catch (error) {
+    console.error('POST /api/orders error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
 export async function GET() {
-   try {
-     const db = await getDb();
-     
-     // Sort orders by newest first
-     const sortedOrders = db.orders.sort((a: any, b: any) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-     );
- 
-     return NextResponse.json({ orders: sortedOrders }, { status: 200 });
-   } catch (error) {
-     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-   }
+  try {
+    const { data, error } = await supabase
+      .from('ec_orders')
+      .select('*')
+      .order('createdAt', { ascending: false });
+
+    if (error) {
+      console.error('Supabase get orders error:', error.message);
+      return NextResponse.json({ error: 'Could not fetch orders' }, { status: 500 });
+    }
+
+    // Parse items JSON string back to array
+    const orders = (data || []).map((order: any) => ({
+      ...order,
+      items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items,
+    }));
+
+    return NextResponse.json({ orders }, { status: 200 });
+
+  } catch (error) {
+    console.error('GET /api/orders error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
 }
 
 export async function PATCH(req: Request) {
-   try {
-     const body = await req.json();
-     const { orderId, newStatus } = body;
- 
-     if (!orderId || !newStatus) {
-       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
-     }
- 
-     const db = await getDb();
-     const orderIndex = db.orders.findIndex((o: any) => o.id === orderId);
-     
-     if (orderIndex === -1) {
-        return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-     }
- 
-     db.orders[orderIndex].status = newStatus;
-     await saveDb(db);
- 
-     return NextResponse.json({ message: 'Order status updated successfully' }, { status: 200 });
-   } catch (error) {
-     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-   }
+  try {
+    const body = await req.json();
+    const { orderId, newStatus } = body;
+
+    if (!orderId || !newStatus) {
+      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    }
+
+    const { error } = await supabase
+      .from('ec_orders')
+      .update({ status: newStatus })
+      .eq('id', orderId);
+
+    if (error) {
+      console.error('Supabase update order error:', error.message);
+      return NextResponse.json({ error: 'Could not update order' }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: 'Order status updated successfully' }, { status: 200 });
+
+  } catch (error) {
+    console.error('PATCH /api/orders error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
 }

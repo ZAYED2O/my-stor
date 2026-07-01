@@ -44,7 +44,7 @@ export default function AddProduct() {
     setLoading(true);
     setTimeout(() => {
       addProduct({
-        id: Date.now(),
+        id: Date.now().toString(),
         name: formData.name,
         price: parseFloat(formData.price),
         category: formData.category,

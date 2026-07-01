@@ -1,22 +1,9 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
+import { supabase } from '@/lib/supabase';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-const dbPath = path.join(process.cwd(), 'users.json');
-
-async function getDb() {
-  try {
-    const data = await fs.readFile(dbPath, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    // If file doesn't exist, return empty db
-    return { users: [] };
-  }
-}
-
-async function saveDb(db: any) {
-  await fs.writeFile(dbPath, JSON.stringify(db, null, 2));
-}
+const JWT_SECRET = process.env.JWT_SECRET || 'ec_zayed_express_jwt_secret_2026';
 
 export async function POST(req: Request) {
   try {
@@ -27,33 +14,56 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     }
 
-    const db = await getDb();
-    
-    if (db.users.find((u: any) => u.email === email)) {
-      return NextResponse.json({ error: 'User already exists' }, { status: 400 });
+    // Check if email already exists
+    const { data: existing } = await supabase
+      .from('ec_users')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (existing) {
+      return NextResponse.json({ error: 'Email already registered' }, { status: 400 });
     }
 
-    const isFirstUser = db.users.length === 0;
-    const assignedRole = isFirstUser || email === 'admin@zayed.com' ? 'super_admin' : 'customer';
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = {
-      id: Date.now().toString(),
-      name,
-      email,
-      password, // Note: In a real production app, always hash passwords! This is an MVP using a JSON file.
-      role: assignedRole,
-      createdAt: new Date().toISOString()
-    };
+    // Determine role: admin email gets super_admin, first user gets super_admin
+    const { count } = await supabase.from('ec_users').select('*', { count: 'exact', head: true });
+    const isFirstUser = (count ?? 0) === 0;
+    const assignedRole = (isFirstUser || email === 'admin@zayed.com') ? 'super_admin' : 'customer';
 
-    db.users.push(newUser);
-    await saveDb(db);
+    const userId = 'u-' + Date.now();
+    const { data: newUser, error } = await supabase
+      .from('ec_users')
+      .insert([{
+        id: userId,
+        name,
+        email,
+        password: hashedPassword,
+        role: assignedRole,
+      }])
+      .select('id, name, email, role')
+      .single();
 
-    return NextResponse.json({ 
+    if (error) {
+      console.error('Supabase insert error:', error.message);
+      return NextResponse.json({ error: 'Could not create user' }, { status: 500 });
+    }
+
+    const token = jwt.sign(
+      { id: newUser.id, email: newUser.email, role: newUser.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    return NextResponse.json({
       user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role },
-      token: 'jwt-mock-token-' + newUser.id 
+      token
     }, { status: 201 });
 
   } catch (error) {
+    console.error('Register error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
