@@ -58,22 +58,40 @@ export default function EditProduct({ params }: { params: { id: string } }) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      updateProduct({
-        ...product,
+    try {
+      const updatedProduct = {
+        id: product.id,
         name: formData.name,
         price: parseFloat(formData.price),
         category: formData.category,
         image: formData.image || "📦",
-        acceptedPayments: formData.acceptedPayments.length > 0 ? formData.acceptedPayments : ['card', 'cod', 'wallet']
+        acceptedPayments: (formData.acceptedPayments.length > 0 ? formData.acceptedPayments : ['card', 'cod', 'wallet']) as ('card' | 'cod' | 'wallet')[]
+      };
+
+      const res = await fetch("/api/products", {
+         method: "PATCH",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify(updatedProduct)
       });
+      const data = await res.json();
+      if (res.ok) {
+         updateProduct({
+            ...product,
+            ...updatedProduct
+         });
+         toast.success("Product updated successfully!");
+         router.push('/seller/products');
+      } else {
+         toast.error(data.error || "Failed to update product");
+      }
+    } catch (err) {
+      toast.error("Error connecting to server");
+    } finally {
       setLoading(false);
-      toast.success("Product updated successfully!");
-      router.push('/seller/products');
-    }, 1000);
+    }
   };
 
   return (

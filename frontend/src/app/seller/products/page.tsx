@@ -5,6 +5,7 @@ import { Package, Plus, Search, Edit, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useStore } from "@/store/useStore";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 export default function SellerProducts() {
   const products = useStore((state) => state.products);
@@ -20,9 +21,21 @@ export default function SellerProducts() {
   // In a real app we'd filter: products.filter(p => p.seller === currentUser.id)
   const myProducts = products;
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
      if (confirm(`Are you sure you want to delete "${name}"?`)) {
-        deleteProduct(id);
+        try {
+           const res = await fetch(`/api/products?id=${id}`, {
+              method: 'DELETE'
+           });
+           if (res.ok) {
+              deleteProduct(id);
+              toast.success("Product deleted successfully");
+           } else {
+              toast.error("Failed to delete product");
+           }
+        } catch (err) {
+           toast.error("Error connecting to server");
+        }
      }
   };
 

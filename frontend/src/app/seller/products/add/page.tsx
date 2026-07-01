@@ -39,24 +39,36 @@ export default function AddProduct() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      addProduct({
-        id: Date.now().toString(),
-        name: formData.name,
-        price: parseFloat(formData.price),
-        category: formData.category,
-        image: formData.image || "📦", // Use uploaded image or default emoji
-        seller: "Tech Store",
-        rating: 0,
-        acceptedPayments: formData.acceptedPayments.length > 0 ? formData.acceptedPayments : ['card', 'cod', 'wallet']
+    try {
+      const res = await fetch("/api/products", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({
+            name: formData.name,
+            price: parseFloat(formData.price),
+            category: formData.category,
+            image: formData.image || "📦",
+            seller: "Tech Store",
+            rating: 5.0,
+            acceptedPayments: formData.acceptedPayments.length > 0 ? formData.acceptedPayments : ['card', 'cod', 'wallet']
+         })
       });
+      const data = await res.json();
+      if (res.ok && data.product) {
+         addProduct(data.product);
+         toast.success("Product listed successfully!");
+         router.push('/seller/products');
+      } else {
+         toast.error(data.error || "Failed to list product");
+      }
+    } catch (err) {
+      toast.error("Error connecting to server");
+    } finally {
       setLoading(false);
-      toast.success("Product listed successfully!");
-      router.push('/seller/products');
-    }, 1000);
+    }
   };
 
   return (
