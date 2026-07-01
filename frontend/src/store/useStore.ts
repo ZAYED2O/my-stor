@@ -24,6 +24,17 @@ export interface User {
   isSeller?: boolean;
 }
 
+export interface Address {
+  id: string;
+  title: string;
+  fullName: string;
+  street: string;
+  city: string;
+  zip: string;
+  country: string;
+  isDefault: boolean;
+}
+
 export interface StoreState {
   products: Product[];
   cart: CartItem[];
@@ -47,6 +58,10 @@ export interface StoreState {
   sellerLogout: () => void;
   wishlist: Product[];
   toggleWishlist: (product: Product) => void;
+  addresses: Address[];
+  addAddress: (address: Address) => void;
+  removeAddress: (id: string) => void;
+  updateAddress: (address: Address) => void;
 }
 
 export const useStore = create<StoreState>()(
@@ -59,6 +74,18 @@ export const useStore = create<StoreState>()(
       isSellerAuth: false,
       productsLoaded: false,
       wishlist: [],
+      addresses: [
+        {
+          id: "addr-1",
+          title: "Home Address",
+          fullName: "John Doe",
+          street: "123 Commerce Blvd, Suite 400",
+          city: "New York",
+          zip: "10001",
+          country: "United States",
+          isDefault: true
+        }
+      ],
 
       fetchProducts: async (force = false) => {
         // Don't refetch if already loaded, unless forced
@@ -126,6 +153,24 @@ export const useStore = create<StoreState>()(
           return { wishlist: [...state.wishlist, product] };
         }
       }),
+
+      addAddress: (address) => set((state) => {
+        const addresses = address.isDefault
+          ? state.addresses.map(a => ({ ...a, isDefault: false }))
+          : state.addresses;
+        return { addresses: [...addresses, address] };
+      }),
+
+      removeAddress: (id) => set((state) => ({
+        addresses: state.addresses.filter(a => a.id !== id)
+      })),
+
+      updateAddress: (updated) => set((state) => {
+        const addresses = updated.isDefault
+          ? state.addresses.map(a => a.id === updated.id ? updated : { ...a, isDefault: false })
+          : state.addresses.map(a => a.id === updated.id ? updated : a);
+        return { addresses };
+      }),
     }),
     {
       name: 'enterprise-commerce-storage',
@@ -138,6 +183,7 @@ export const useStore = create<StoreState>()(
         products: state.products,
         productsLoaded: state.productsLoaded,
         wishlist: state.wishlist,
+        addresses: state.addresses,
       }),
     }
   )

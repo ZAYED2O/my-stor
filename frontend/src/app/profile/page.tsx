@@ -1,8 +1,8 @@
 "use client";
 
 import Header from "../components/Header";
-import { Package, ShieldAlert, Heart, MapPin, CreditCard, Headphones, UserCircle, CheckCircle2, ChevronLeft, LogOut, Clock, Truck } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Package, Heart, MapPin, CreditCard, Headphones, UserCircle, CheckCircle2, ChevronLeft, LogOut, Clock, Truck, Send, MessageSquare, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@/store/useStore";
 import { useRouter } from "next/navigation";
@@ -20,6 +20,22 @@ export default function CustomerProfile() {
   const toggleWishlist = useStore(state => state.toggleWishlist);
   const addToCart = useStore(state => state.addToCart);
 
+  // Address states
+  const addresses = useStore(state => state.addresses || []);
+  const addAddress = useStore(state => state.addAddress);
+  const removeAddress = useStore(state => state.removeAddress);
+  const updateAddress = useStore(state => state.updateAddress);
+
+  const [editingAddress, setEditingAddress] = useState<any | null>(null);
+  const [addressTitle, setAddressTitle] = useState("");
+  const [addressFullName, setAddressFullName] = useState("");
+  const [addressStreet, setAddressStreet] = useState("");
+  const [addressCity, setAddressCity] = useState("");
+  const [addressZip, setAddressZip] = useState("");
+  const [addressCountry, setAddressCountry] = useState("");
+  const [addressDefault, setAddressDefault] = useState(false);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+
   // Profile settings states
   const [profileName, setProfileName] = useState(user?.name || "");
   const [oldPassword, setOldPassword] = useState("");
@@ -27,21 +43,89 @@ export default function CustomerProfile() {
   const [updatingProfile, setUpdatingProfile] = useState(false);
 
   // Support states
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [ticketSubject, setTicketSubject] = useState("");
   const [ticketMessage, setTicketMessage] = useState("");
+  
+  // Live Chat states
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<any[]>([
+     { sender: 'bot', text: 'مرحباً بك في Zayed Express. كيف يمكنني مساعدتك اليوم؟', time: new Date() }
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const router = useRouter();
 
   useEffect(() => {
+    if (!user && typeof window !== 'undefined') {
+       router.push('/login');
+    }
+  }, [user, router]);
+
+  useEffect(() => {
      if (user) {
         setProfileName(user.name);
+        fetchOrders();
      }
   }, [user]);
 
+  useEffect(() => {
+     if (activeTab === 'support') {
+        fetchTickets();
+     }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (chatOpen) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, chatOpen]);
+
+  const fetchOrders = () => {
+    if (!user) return;
+    setLoadingOrders(true);
+    fetch('/api/orders')
+      .then(res => res.json())
+      .then(data => {
+         if (data.orders) {
+            setOrders(data.orders.filter((o: any) => o.customerEmail === user.email));
+         }
+         setLoadingOrders(false);
+      })
+      .catch(() => setLoadingOrders(false));
+  };
+
+  const fetchTickets = async () => {
+    if (!user) return;
+    setLoadingTickets(true);
+    try {
+      const res = await fetch(`/api/support?email=${encodeURIComponent(user.email)}`);
+      const data = await res.json();
+      if (res.ok && data.tickets) {
+         setTickets(data.tickets);
+      }
+    } catch (err) {
+       console.error('Failed to load tickets:', err);
+    } finally {
+       setLoadingTickets(false);
+    }
+  };
+
+  if (!user) {
+     return null;
+  }
+
+  const handleLogout = () => {
+    logout();
+    toast.success("Successfully logged out");
+    router.push("/");
+  };
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
     setUpdatingProfile(true);
     try {
       const res = await fetch("/api/auth/password", {
@@ -70,52 +154,104 @@ export default function CustomerProfile() {
     }
   };
 
-  const handleSubmitTicket = (e: React.FormEvent) => {
-     e.preventDefault();
-     toast.success("Support ticket submitted! Ticket ID: #" + Math.floor(100000 + Math.random() * 900000));
-     setTicketSubject("");
-     setTicketMessage("");
-     setShowTicketForm(false);
+  const handleCancelOrder = async (orderId: string) => {
+     if (!confirm("Are you sure you want to cancel this order?")) return;
+     try {
+        const res = await fetch("/api/orders", {
+           method: "PATCH",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({
+              orderId,
+              newStatus: "Cancelled"
+           })
+        });
+        if (res.ok) {
+           toast.success("Order cancelled successfully");
+           fetchOrders();
+        } else {
+           toast.error("Failed to cancel order");
+        }
+     } catch (err) {
+        toast.error("Connection error");
+     }
   };
 
-  useEffect(() => {
-    if (!user && typeof window !== 'undefined') {
-       router.push('/login');
+  const handleSaveAddress = (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = {
+      id: editingAddress ? editingAddress.id : 'addr-' + Date.now(),
+      title: addressTitle,
+      fullName: addressFullName,
+      street: addressStreet,
+      city: addressCity,
+      zip: addressZip,
+      country: addressCountry,
+      isDefault: addressDefault
+    };
+
+    if (editingAddress) {
+      updateAddress(payload);
+      toast.success("Address updated successfully!");
+    } else {
+      addAddress(payload);
+      toast.success("Address added successfully!");
     }
-  }, [user, router]);
+    setShowAddressForm(false);
+  };
 
-  useEffect(() => {
-     if (user) {
-        fetch('/api/orders')
-          .then(res => res.json())
-          .then(data => {
-             if (data.orders) {
-                setOrders(data.orders.filter((o: any) => o.customerEmail === user.email));
-             }
-             setLoadingOrders(false);
-          })
-          .catch(() => setLoadingOrders(false));
+  const handleSubmitTicket = async (e: React.FormEvent) => {
+     e.preventDefault();
+     try {
+       const res = await fetch("/api/support", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({
+            customerEmail: user.email,
+            subject: ticketSubject,
+            message: ticketMessage
+         })
+       });
+       const data = await res.json();
+       if (res.ok) {
+          toast.success(`Support ticket submitted! ID: ${data.ticket.id}`);
+          setTicketSubject("");
+          setTicketMessage("");
+          setShowTicketForm(false);
+          fetchTickets();
+       } else {
+          toast.error(data.error || "Failed to submit ticket");
+       }
+     } catch (err) {
+        toast.error("Connection failed");
      }
-  }, [user]);
+  };
 
-  // If not logged in, wait for redirect
-  if (!user) {
-     return null;
-  }
-
-  const handleLogout = () => {
-    logout();
-    toast.success("Successfully logged out");
-    router.push("/");
+  const handleSendChatMessage = (e: React.FormEvent) => {
+     e.preventDefault();
+     if (!chatInput.trim()) return;
+     const userMsg = { sender: 'user', text: chatInput, time: new Date() };
+     setChatMessages(prev => [...prev, userMsg]);
+     const currentInput = chatInput;
+     setChatInput("");
+     
+     setTimeout(() => {
+        let reply = "شكراً لتواصلك معنا! سيقوم أحد ممثلي الدعم بالرد عليك قريباً. يمكنك أيضاً إنشاء تذكرة دعم لمتابعتها عبر البريد الإلكتروني.";
+        if (currentInput.toLowerCase().includes("order") || currentInput.includes("طلب") || currentInput.includes("شحن")) {
+           reply = "لمعرفة حالة طلبك، يمكنك التوجه إلى قسم 'Order History' (تاريخ الطلبات) في صفحة حسابك الشخصي.";
+        } else if (currentInput.toLowerCase().includes("cancel") || currentInput.includes("الغاء") || currentInput.includes("إلغاء")) {
+           reply = "يمكنك إلغاء أي طلب بحالة 'Pending' مباشرة من قائمة تاريخ الطلبات بالضغط على زر 'Cancel Order'.";
+        }
+        setChatMessages(prev => [...prev, { sender: 'bot', text: reply, time: new Date() }]);
+     }, 1000);
   };
 
   const cards = [
-    { id: "orders", icon: Package, title: "Order History", desc: "Track, return, or buy things again" },
-    { id: "settings", icon: ShieldAlert, title: "Account Settings", desc: "Edit login, name, and mobile number" },
-    { id: "addresses", icon: MapPin, title: "Saved Addresses", desc: "Edit addresses for fast checkout" },
-    { id: "payments", icon: CreditCard, title: "Payment Methods", desc: "Manage cards and billing" },
-    { id: "wishlist", icon: Heart, title: "Wishlists", desc: "View your saved items" },
-    { id: "support", icon: Headphones, title: "Customer Support", desc: "24/7 help from ZAYED EXPRESS" },
+    { id: "orders", icon: Package, title: "Order History", desc: "Track, return, or cancel your orders" },
+    { id: "settings", icon: UserCircle, title: "Account Settings", desc: "Edit name, password, and details" },
+    { id: "addresses", icon: MapPin, title: "Saved Addresses", desc: "Edit and manage your shipping addresses" },
+    { id: "payments", icon: CreditCard, title: "Payment Methods", desc: "Manage cards and billing options" },
+    { id: "wishlist", icon: Heart, title: "Wishlists", desc: "View and shop your saved items" },
+    { id: "support", icon: Headphones, title: "Customer Support", desc: "24/7 support and live chat" },
   ];
 
   const renderContent = () => {
@@ -137,26 +273,40 @@ export default function CustomerProfile() {
                     <div className="w-24 h-24 bg-gray-50 rounded-xl flex items-center justify-center text-4xl p-2 overflow-hidden flex-shrink-0">
                        {order.items[0]?.image.startsWith('data:') ? <img src={order.items[0]?.image} className="w-full h-full object-contain mix-blend-multiply" /> : order.items[0]?.image || '📦'}
                     </div>
-                    <div className="flex-1">
-                       <div className="flex justify-between items-start">
-                          <div>
-                             <p className="font-bold text-[#1A233A] text-lg line-clamp-1">{order.items[0]?.name} {order.items.length > 1 && `+ ${order.items.length - 1} more items`}</p>
-                             <p className="text-sm text-gray-500 mt-1">Order {order.id} • {new Date(order.createdAt).toLocaleDateString()}</p>
+                    <div className="flex-1 flex flex-col justify-between">
+                       <div>
+                          <div className="flex justify-between items-start">
+                             <div>
+                                <p className="font-bold text-[#1A233A] text-lg line-clamp-1">{order.items[0]?.name} {order.items.length > 1 && `+ ${order.items.length - 1} more items`}</p>
+                                <p className="text-sm text-gray-500 mt-1">Order {order.id} • {new Date(order.createdAt).toLocaleDateString()}</p>
+                             </div>
+                             <p className="font-bold text-[#1A233A] text-xl">${order.total.toFixed(2)}</p>
                           </div>
-                          <p className="font-bold text-[#1A233A] text-xl">${order.total.toFixed(2)}</p>
+                          
+                          <div className={`mt-4 flex items-center gap-2 px-3 py-1.5 rounded-lg w-fit text-sm font-bold ${
+                              order.status === 'Pending' ? 'bg-amber-100 text-amber-700' :
+                              order.status === 'Processing' ? 'bg-blue-100 text-blue-700' :
+                              order.status === 'Shipped' ? 'bg-purple-100 text-purple-700' :
+                              order.status === 'Cancelled' ? 'bg-red-100 text-red-700' :
+                              'bg-emerald-100 text-emerald-700'
+                          }`}>
+                             {order.status === 'Pending' && <Clock className="w-4 h-4" />}
+                             {order.status === 'Processing' && <Package className="w-4 h-4" />}
+                             {order.status === 'Shipped' && <Truck className="w-4 h-4" />}
+                             {order.status === 'Delivered' && <CheckCircle2 className="w-4 h-4" />}
+                             {order.status === 'Cancelled' && <X className="w-4 h-4" />}
+                             Status: {order.status}
+                          </div>
                        </div>
-                       <div className={`mt-4 flex items-center gap-2 px-3 py-1.5 rounded-lg w-fit text-sm font-bold ${
-                           order.status === 'Pending' ? 'bg-amber-100 text-amber-700' :
-                           order.status === 'Processing' ? 'bg-blue-100 text-blue-700' :
-                           order.status === 'Shipped' ? 'bg-purple-100 text-purple-700' :
-                           'bg-emerald-100 text-emerald-700'
-                       }`}>
-                          {order.status === 'Pending' && <Clock className="w-4 h-4" />}
-                          {order.status === 'Processing' && <Package className="w-4 h-4" />}
-                          {order.status === 'Shipped' && <Truck className="w-4 h-4" />}
-                          {order.status === 'Delivered' && <CheckCircle2 className="w-4 h-4" />}
-                          Status: {order.status}
-                       </div>
+                       
+                       {order.status === 'Pending' && (
+                          <button 
+                            onClick={() => handleCancelOrder(order.id)}
+                            className="mt-4 text-xs font-bold text-red-500 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl transition-colors w-fit"
+                          >
+                             Cancel Order
+                          </button>
+                       )}
                     </div>
                  </div>
                ))
@@ -168,21 +318,99 @@ export default function CustomerProfile() {
           <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="space-y-6">
             <div className="flex justify-between items-center mb-6">
                <h2 className="text-2xl font-bold text-[#1A233A]">Saved Addresses</h2>
-               <button className="bg-[#FF7A00] hover:bg-[#FF9900] text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors">Add New</button>
+               {!showAddressForm && (
+                 <button onClick={() => {
+                   setEditingAddress(null);
+                   setAddressTitle("");
+                   setAddressFullName("");
+                   setAddressStreet("");
+                   setAddressCity("");
+                   setAddressZip("");
+                   setAddressCountry("");
+                   setAddressDefault(false);
+                   setShowAddressForm(true);
+                 }} className="bg-[#FF7A00] hover:bg-[#FF9900] text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors">Add New</button>
+               )}
             </div>
-            <div className="bg-white rounded-2xl shadow-sm border-2 border-[#FF7A00] p-6 relative">
-               <span className="absolute top-4 right-4 bg-[#FF7A00]/10 text-[#FF7A00] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Default</span>
-               <h3 className="font-bold text-[#1A233A] mb-3 text-lg">Home Address</h3>
-               <p className="text-gray-600 leading-relaxed">
-                 John Doe<br/>
-                 123 Commerce Blvd, Suite 400<br/>
-                 New York, NY 10001<br/>
-                 United States
-               </p>
-               <div className="mt-6 flex gap-4">
-                  <button className="text-[#FF7A00] font-bold text-sm hover:underline">Edit</button>
-                  <button className="text-red-500 font-bold text-sm hover:underline">Remove</button>
-               </div>
+
+            {showAddressForm && (
+              <form onSubmit={handleSaveAddress} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4 max-w-xl animate-in fade-in slide-in-from-top-2">
+                 <h3 className="font-bold text-[#1A233A] text-lg">{editingAddress ? "Edit Address" : "Add Address"}</h3>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                       <label className="text-xs font-bold text-gray-500">Address Title (Home, Office)</label>
+                       <input required type="text" value={addressTitle} onChange={e => setAddressTitle(e.target.value)} placeholder="e.g. Home" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-[#FF7A00] text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                       <label className="text-xs font-bold text-gray-500">Recipient Name</label>
+                       <input required type="text" value={addressFullName} onChange={e => setAddressFullName(e.target.value)} placeholder="e.g. John Doe" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-[#FF7A00] text-sm" />
+                    </div>
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-500">Street Address</label>
+                    <input required type="text" value={addressStreet} onChange={e => setAddressStreet(e.target.value)} placeholder="e.g. 123 Main St" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-[#FF7A00] text-sm" />
+                 </div>
+                 <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                       <label className="text-xs font-bold text-gray-500">City</label>
+                       <input required type="text" value={addressCity} onChange={e => setAddressCity(e.target.value)} placeholder="Cairo" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-[#FF7A00] text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                       <label className="text-xs font-bold text-gray-500">Zip / Postal Code</label>
+                       <input required type="text" value={addressZip} onChange={e => setAddressZip(e.target.value)} placeholder="11511" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-[#FF7A00] text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                       <label className="text-xs font-bold text-gray-500">Country</label>
+                       <input required type="text" value={addressCountry} onChange={e => setAddressCountry(e.target.value)} placeholder="Egypt" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-[#FF7A00] text-sm" />
+                    </div>
+                 </div>
+                 <label className="flex items-center gap-2 cursor-pointer pt-2">
+                    <input type="checkbox" checked={addressDefault} onChange={e => setAddressDefault(e.target.checked)} className="accent-[#FF7A00] w-4 h-4" />
+                    <span className="text-xs font-bold text-gray-600">Set as default address</span>
+                 </label>
+                 <div className="flex gap-4 pt-2">
+                    <button type="submit" className="bg-[#FF7A00] hover:bg-[#FF9900] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-colors">Save Address</button>
+                    <button type="button" onClick={() => setShowAddressForm(false)} className="text-gray-500 font-bold hover:underline text-sm">Cancel</button>
+                 </div>
+              </form>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-6">
+               {addresses.length === 0 ? (
+                  <p className="text-gray-500 italic text-sm">No saved addresses yet.</p>
+               ) : (
+                  addresses.map(addr => (
+                     <div key={addr.id} className={`bg-white rounded-2xl shadow-sm p-6 relative border-2 ${addr.isDefault ? 'border-[#FF7A00]' : 'border-gray-100'}`}>
+                        {addr.isDefault && <span className="absolute top-4 right-4 bg-[#FF7A00]/10 text-[#FF7A00] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Default</span>}
+                        <h3 className="font-bold text-[#1A233A] mb-3 text-lg">{addr.title}</h3>
+                        <p className="text-gray-600 leading-relaxed text-sm">
+                          {addr.fullName}<br/>
+                          {addr.street}<br/>
+                          {addr.city}, {addr.zip}<br/>
+                          {addr.country}
+                        </p>
+                        <div className="mt-6 flex gap-4">
+                           <button onClick={() => {
+                              setEditingAddress(addr);
+                              setAddressTitle(addr.title);
+                              setAddressFullName(addr.fullName);
+                              setAddressStreet(addr.street);
+                              setAddressCity(addr.city);
+                              setAddressZip(addr.zip);
+                              setAddressCountry(addr.country);
+                              setAddressDefault(addr.isDefault);
+                              setShowAddressForm(true);
+                           }} className="text-[#FF7A00] font-bold text-sm hover:underline">Edit</button>
+                           <button onClick={() => {
+                              if(confirm("Are you sure?")) {
+                                 removeAddress(addr.id);
+                                 toast.success("Address removed");
+                              }
+                           }} className="text-red-500 font-bold text-sm hover:underline">Remove</button>
+                        </div>
+                     </div>
+                  ))
+               )}
             </div>
           </motion.div>
         );
@@ -191,7 +419,7 @@ export default function CustomerProfile() {
           <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="space-y-6">
             <div className="flex justify-between items-center mb-6">
                <h2 className="text-2xl font-bold text-[#1A233A]">Payment Methods</h2>
-               <button className="bg-[#FF7A00] hover:bg-[#FF9900] text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors">Add Card</button>
+               <button onClick={() => toast.info("Payment setup is simulation only")} className="bg-[#FF7A00] hover:bg-[#FF9900] text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors">Add Card</button>
             </div>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4">
                <div className="w-16 h-12 bg-gradient-to-br from-[#1A233A] to-[#2a3759] rounded-lg flex items-center justify-center text-white text-xs font-bold italic shadow-inner">VISA</div>
@@ -283,21 +511,21 @@ export default function CustomerProfile() {
              <h2 className="text-2xl font-bold text-[#1A233A] mb-6">24/7 Customer Support</h2>
              <div className="grid md:grid-cols-3 gap-6">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center space-y-4">
-                   <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center mx-auto"><Headphones className="w-6 h-6" /></div>
+                   <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center mx-auto"><MessageSquare className="w-6 h-6" /></div>
                    <h3 className="font-bold text-[#1A233A]">Live Chat</h3>
                    <p className="text-sm text-gray-500">Average response: 2 mins</p>
-                   <button type="button" onClick={() => toast.success("Live Chat is opening in your browser...")} className="w-full bg-[#1A233A] hover:bg-[#FF7A00] text-white py-2 rounded-xl text-xs font-bold transition-colors">Start Chat</button>
+                   <button type="button" onClick={() => setChatOpen(true)} className="w-full bg-[#1A233A] hover:bg-[#FF7A00] text-white py-2 rounded-xl text-xs font-bold transition-colors">Start Chat</button>
                 </div>
                 
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center space-y-4">
-                   <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mx-auto"><Package className="w-6 h-6" /></div>
+                   <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mx-auto"><Headphones className="w-6 h-6" /></div>
                    <h3 className="font-bold text-[#1A233A]">Call Support</h3>
                    <p className="text-sm text-gray-500">Call Toll-Free: 19999</p>
-                   <button type="button" onClick={() => toast.success("Dialing support...")} className="w-full bg-[#1A233A] hover:bg-[#FF7A00] text-white py-2 rounded-xl text-xs font-bold transition-colors">Call Now</button>
+                   <a href="tel:19999" className="w-full bg-[#1A233A] hover:bg-[#FF7A00] text-white py-2 rounded-xl text-xs font-bold transition-colors inline-block text-center">Call Now</a>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center space-y-4">
-                   <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mx-auto"><Heart className="w-6 h-6" /></div>
+                   <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mx-auto"><Send className="w-6 h-6" /></div>
                    <h3 className="font-bold text-[#1A233A]">Submit Ticket</h3>
                    <p className="text-sm text-gray-500">Get email support in 12h</p>
                    <button type="button" onClick={() => setShowTicketForm(true)} className="w-full bg-[#1A233A] hover:bg-[#FF7A00] text-white py-2 rounded-xl text-xs font-bold transition-colors">Submit Ticket</button>
@@ -305,7 +533,7 @@ export default function CustomerProfile() {
              </div>
 
              {showTicketForm && (
-                <motion.form initial={{opacity:0, scale:0.95}} animate={{opacity:1, scale:1}} onSubmit={handleSubmitTicket} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4 max-w-xl">
+                <motion.form initial={{opacity:0, scale:0.95}} animate={{opacity:1, scale:1}} onSubmit={handleSubmitTicket} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4 max-w-xl animate-in fade-in slide-in-from-top-2">
                    <h3 className="font-bold text-[#1A233A] text-lg mb-2">Submit Support Ticket</h3>
                    <div className="space-y-2">
                       <label className="text-sm font-bold text-gray-500">Subject</label>
@@ -316,10 +544,45 @@ export default function CustomerProfile() {
                       <textarea required value={ticketMessage} onChange={e => setTicketMessage(e.target.value)} placeholder="Please detail your problem..." rows={4} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FF7A00] focus:ring-2 focus:ring-[#FF7A00]/20 transition-all text-sm" />
                    </div>
                    <div className="flex gap-4">
-                      <button type="submit" className="bg-[#FF7A00] hover:bg-[#FF9900] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-colors">Submit</button>
+                      <button type="submit" className="bg-[#FF7A00] hover:bg-[#FF9900] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-colors">Submit Ticket</button>
                       <button type="button" onClick={() => setShowTicketForm(false)} className="text-gray-500 font-bold hover:underline text-sm">Cancel</button>
                    </div>
                 </motion.form>
+             )}
+
+             <div className="h-px bg-gray-100 my-8" />
+             <h3 className="font-bold text-[#1A233A] text-xl mb-4">Your Support Tickets</h3>
+             {loadingTickets ? (
+                <p className="text-gray-500">Loading tickets...</p>
+             ) : tickets.length === 0 ? (
+                <p className="text-gray-500 text-sm italic">No support tickets submitted yet.</p>
+             ) : (
+                <div className="space-y-4">
+                   {tickets.map(ticket => (
+                      <div key={ticket.id} className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4 shadow-sm">
+                         <div className="flex justify-between items-start">
+                            <div>
+                               <h4 className="font-bold text-[#1A233A]">{ticket.subject}</h4>
+                               <p className="text-xs text-gray-500 mt-1">Ticket: {ticket.id} • {new Date(ticket.createdAt).toLocaleDateString()}</p>
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              ticket.status === 'Open' ? 'bg-amber-100 text-amber-700' :
+                              ticket.status === 'Replied' ? 'bg-blue-100 text-blue-700' :
+                              'bg-emerald-100 text-emerald-700'
+                            }`}>
+                               {ticket.status}
+                            </span>
+                         </div>
+                         <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-xl">{ticket.message}</p>
+                         {ticket.reply && (
+                            <div className="bg-emerald-50/50 border border-emerald-100/50 rounded-xl p-4 space-y-2">
+                               <p className="text-xs font-bold text-emerald-700">Support Response:</p>
+                               <p className="text-sm text-gray-700">{ticket.reply}</p>
+                            </div>
+                         )}
+                      </div>
+                   ))}
+                </div>
              )}
            </motion.div>
          );
@@ -332,7 +595,7 @@ export default function CustomerProfile() {
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col">
       <Header />
       
-      <main className="flex-1 max-w-[1200px] w-full mx-auto px-4 md:px-8 py-8 md:py-12">
+      <main className="flex-1 max-w-[1200px] w-full mx-auto px-4 md:px-8 py-8 md:py-12 relative">
          
          {/* Profile Banner */}
          <div className="bg-[#1A233A] rounded-3xl p-8 mb-8 flex items-center gap-6 shadow-xl relative overflow-hidden">
@@ -358,41 +621,92 @@ export default function CustomerProfile() {
          </div>
          
          <AnimatePresence mode="wait">
-           {!activeTab ? (
-             <motion.div 
-               key="grid"
-               initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
-               className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
-             >
-                {cards.map((card) => (
-                   <div 
-                      key={card.id} 
-                      onClick={() => setActiveTab(card.id)}
-                      className="bg-white border border-gray-100 shadow-sm rounded-2xl p-6 flex gap-4 hover:shadow-xl hover:border-[#FF7A00]/30 transition-all cursor-pointer group"
-                   >
-                      <div className="w-14 h-14 bg-gray-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-[#FF7A00]/10 transition-colors">
-                         <card.icon className="w-6 h-6 text-gray-400 group-hover:text-[#FF7A00] transition-colors" />
-                      </div>
-                      <div>
-                         <h3 className="text-lg font-bold text-[#1A233A]">{card.title}</h3>
-                         <p className="text-sm text-gray-500 leading-relaxed mt-1">{card.desc}</p>
-                      </div>
-                   </div>
-                ))}
-             </motion.div>
-           ) : (
-             <motion.div key="content" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-                <button 
-                   onClick={() => setActiveTab(null)}
-                   className="flex items-center gap-2 text-gray-500 hover:text-[#FF7A00] font-bold mb-6 transition-colors"
-                >
-                   <ChevronLeft className="w-5 h-5" /> Back to Account
-                </button>
-                {renderContent()}
-             </motion.div>
-           )}
+            {!activeTab ? (
+              <motion.div 
+                key="grid"
+                initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+                className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+              >
+                 {cards.map((card) => (
+                    <div 
+                       key={card.id} 
+                       onClick={() => setActiveTab(card.id)}
+                       className="bg-white border border-gray-100 shadow-sm rounded-2xl p-6 flex gap-4 hover:shadow-xl hover:border-[#FF7A00]/30 transition-all cursor-pointer group"
+                    >
+                       <div className="w-14 h-14 bg-gray-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-[#FF7A00]/10 transition-colors">
+                          <card.icon className="w-6 h-6 text-gray-400 group-hover:text-[#FF7A00] transition-colors" />
+                       </div>
+                       <div>
+                          <h3 className="text-lg font-bold text-[#1A233A]">{card.title}</h3>
+                          <p className="text-sm text-gray-500 leading-relaxed mt-1">{card.desc}</p>
+                       </div>
+                    </div>
+                 ))}
+              </motion.div>
+            ) : (
+              <motion.div key="content" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+                 <button 
+                    onClick={() => setActiveTab(null)}
+                    className="flex items-center gap-2 text-gray-500 hover:text-[#FF7A00] font-bold mb-6 transition-colors"
+                 >
+                    <ChevronLeft className="w-5 h-5" /> Back to Account
+                 </button>
+                 {renderContent()}
+              </motion.div>
+            )}
          </AnimatePresence>
       </main>
+
+      {/* Floating Interactive Live Chat Modal */}
+      <AnimatePresence>
+         {chatOpen && (
+            <motion.div 
+               initial={{opacity: 0, y: 100}}
+               animate={{opacity: 1, y: 0}}
+               exit={{opacity: 0, y: 100}}
+               className="fixed bottom-6 right-6 z-[100] w-[350px] h-[450px] bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
+            >
+               {/* Chat Header */}
+               <div className="bg-[#1A233A] px-4 py-3 flex justify-between items-center text-white">
+                  <div className="flex items-center gap-2">
+                     <MessageSquare className="w-5 h-5 text-[#FF7A00]" />
+                     <span className="font-bold text-sm">Zayed Support (مساعد الدعم)</span>
+                  </div>
+                  <button onClick={() => setChatOpen(false)} className="text-gray-300 hover:text-white">
+                     <X className="w-5 h-5" />
+                  </button>
+               </div>
+               
+               {/* Chat Messages */}
+               <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50 text-xs">
+                  {chatMessages.map((msg, i) => (
+                     <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] rounded-2xl p-3 leading-relaxed shadow-sm ${
+                           msg.sender === 'user' ? 'bg-[#FF7A00] text-white rounded-tr-none' : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
+                        }`}>
+                           {msg.text}
+                        </div>
+                     </div>
+                  ))}
+                  <div ref={chatEndRef} />
+               </div>
+
+               {/* Chat Input */}
+               <form onSubmit={handleSendChatMessage} className="p-3 border-t border-gray-100 flex gap-2">
+                  <input 
+                    type="text" 
+                    value={chatInput} 
+                    onChange={e => setChatInput(e.target.value)} 
+                    placeholder="اكتب رسالتك..." 
+                    className="flex-1 bg-gray-50 rounded-xl px-3 py-2 outline-none text-xs focus:ring-1 focus:ring-[#FF7A00]" 
+                  />
+                  <button type="submit" className="bg-[#FF7A00] hover:bg-[#FF9900] text-white p-2 rounded-xl transition-colors">
+                     <Send className="w-4 h-4" />
+                  </button>
+               </form>
+            </motion.div>
+         )}
+      </AnimatePresence>
     </div>
   );
 }
