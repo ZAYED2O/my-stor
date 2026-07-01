@@ -11,10 +11,17 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
   const [loading, setLoading] = useState(false);
   const products = useStore((state) => state.products);
   const productsLoaded = useStore((state) => state.productsLoaded);
+  const fetchProducts = useStore((state) => state.fetchProducts);
   const updateProduct = useStore((state) => state.updateProduct);
   const router = useRouter();
 
   const product = products.find(p => p.id === id);
+
+  useEffect(() => {
+     if (productsLoaded && !product) {
+        fetchProducts(true);
+     }
+  }, [product, productsLoaded, fetchProducts]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -41,7 +48,24 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
   }
 
   if (!product) {
-     return <div className="p-12 text-center text-red-500 font-bold">Product not found.</div>;
+     return (
+        <div className="p-12 max-w-md mx-auto text-center space-y-4">
+           <div className="text-red-500 font-bold text-xl">Product not found.</div>
+           <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-left text-xs font-mono space-y-2">
+              <p><strong>Requested ID:</strong> "{id}"</p>
+              <p><strong>Products Loaded:</strong> {productsLoaded ? "Yes" : "No"}</p>
+              <p><strong>Available IDs in Store:</strong></p>
+              <ul className="list-disc pl-4 max-h-40 overflow-y-auto">
+                 {products.map(p => (
+                    <li key={p.id}>"{p.id}" - {p.name}</li>
+                 ))}
+              </ul>
+           </div>
+           <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold">
+              Force Reload Page
+           </button>
+        </div>
+     );
   }
 
   const togglePayment = (method: 'card' | 'cod' | 'wallet') => {

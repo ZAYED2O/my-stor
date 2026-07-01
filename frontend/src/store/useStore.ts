@@ -31,7 +31,7 @@ export interface StoreState {
   isAdminAuth: boolean;
   isSellerAuth: boolean;
   productsLoaded: boolean;
-  fetchProducts: () => Promise<void>;
+  fetchProducts: (force?: boolean) => Promise<void>;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -57,9 +57,9 @@ export const useStore = create<StoreState>()(
       isSellerAuth: false,
       productsLoaded: false,
 
-      fetchProducts: async () => {
-        // Don't refetch if already loaded
-        if (get().productsLoaded) return;
+      fetchProducts: async (force = false) => {
+        // Don't refetch if already loaded, unless forced
+        if (get().productsLoaded && !force) return;
         try {
           const res = await fetch('/api/products');
           const data = await res.json();
