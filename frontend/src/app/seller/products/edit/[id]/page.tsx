@@ -2,17 +2,19 @@
 
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useStore } from "@/store/useStore";
 import { useRouter } from "next/navigation";
 
-export default function EditProduct({ params }: { params: { id: string } }) {
+export default function EditProduct({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [loading, setLoading] = useState(false);
   const products = useStore((state) => state.products);
+  const productsLoaded = useStore((state) => state.productsLoaded);
   const updateProduct = useStore((state) => state.updateProduct);
   const router = useRouter();
 
-  const product = products.find(p => p.id === params.id);
+  const product = products.find(p => p.id === id);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -34,8 +36,12 @@ export default function EditProduct({ params }: { params: { id: string } }) {
      }
   }, [product]);
 
+  if (!productsLoaded) {
+     return <div className="p-12 text-center text-gray-500 font-bold">Loading product details...</div>;
+  }
+
   if (!product) {
-     return <div className="p-12 text-center">Product not found.</div>;
+     return <div className="p-12 text-center text-red-500 font-bold">Product not found.</div>;
   }
 
   const togglePayment = (method: 'card' | 'cod' | 'wallet') => {
