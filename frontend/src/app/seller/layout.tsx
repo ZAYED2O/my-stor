@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 export default function SellerLayout({ children }: { children: React.ReactNode }) {
   const isSellerAuth = useStore(state => state.isSellerAuth);
   const sellerLogin = useStore(state => state.sellerLogin);
+  const user = useStore(state => state.user);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isMounted, setIsMounted] = useState(false);
@@ -23,6 +24,13 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
   ];
 
   useEffect(() => setIsMounted(true), []);
+
+  // Auto-authenticate if user is already logged in with seller or super_admin role
+  useEffect(() => {
+    if (isMounted && !isSellerAuth && user && ((user as any).role === 'seller' || (user as any).role === 'super_admin')) {
+      sellerLogin();
+    }
+  }, [isMounted, isSellerAuth, user, sellerLogin]);
 
   const handleLogin = async (e: React.FormEvent) => {
      e.preventDefault();

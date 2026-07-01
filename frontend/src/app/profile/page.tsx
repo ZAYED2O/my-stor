@@ -1,7 +1,7 @@
 "use client";
 
 import Header from "../components/Header";
-import { Package, ShieldAlert, Heart, MapPin, CreditCard, Headphones, UserCircle, CheckCircle2, ChevronLeft, LogOut, Clock, Truck, ShieldCheck, Store } from "lucide-react";
+import { Package, ShieldAlert, Heart, MapPin, CreditCard, Headphones, UserCircle, CheckCircle2, ChevronLeft, LogOut, Clock, Truck } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@/store/useStore";
@@ -56,13 +56,6 @@ export default function CustomerProfile() {
     { id: "wishlist", icon: Heart, title: "Wishlists", desc: "View your saved items" },
     { id: "support", icon: Headphones, title: "Customer Support", desc: "24/7 help from ZAYED EXPRESS" },
   ];
-
-  if (user && user.role === 'super_admin') {
-     cards.unshift({ id: "admin_portal", icon: ShieldCheck, title: "Admin Control Panel", desc: "Access the system settings and users list" });
-  }
-  if (user && (user.role === 'seller' || user.role === 'super_admin')) {
-     cards.unshift({ id: "seller_portal", icon: Store, title: "Seller Dashboard", desc: "List products and check incoming orders" });
-  }
 
   const renderContent = () => {
     switch (activeTab) {
@@ -205,15 +198,7 @@ export default function CustomerProfile() {
                 {cards.map((card) => (
                    <div 
                       key={card.id} 
-                      onClick={() => {
-                          if (card.id === 'admin_portal') {
-                             router.push('/admin');
-                          } else if (card.id === 'seller_portal') {
-                             router.push('/seller');
-                          } else {
-                             setActiveTab(card.id);
-                          }
-                       }}
+                      onClick={() => setActiveTab(card.id)}
                       className="bg-white border border-gray-100 shadow-sm rounded-2xl p-6 flex gap-4 hover:shadow-xl hover:border-[#FF7A00]/30 transition-all cursor-pointer group"
                    >
                       <div className="w-14 h-14 bg-gray-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-[#FF7A00]/10 transition-colors">

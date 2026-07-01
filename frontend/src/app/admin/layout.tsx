@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const isAdminAuth = useStore(state => state.isAdminAuth);
   const adminLogin = useStore(state => state.adminLogin);
+  const user = useStore(state => state.user);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isMounted, setIsMounted] = useState(false);
@@ -22,6 +23,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   ];
 
   useEffect(() => setIsMounted(true), []);
+
+  // Auto-authenticate if user is already logged in with super_admin role
+  useEffect(() => {
+    if (isMounted && !isAdminAuth && user && (user as any).role === 'super_admin') {
+      adminLogin();
+    }
+  }, [isMounted, isAdminAuth, user, adminLogin]);
 
   const handleLogin = async (e: React.FormEvent) => {
      e.preventDefault();
