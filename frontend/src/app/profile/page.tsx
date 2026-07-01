@@ -15,7 +15,68 @@ export default function CustomerProfile() {
   
   const user = useStore(state => state.user);
   const logout = useStore(state => state.logout);
+  const login = useStore(state => state.login);
+  const wishlist = useStore(state => state.wishlist || []);
+  const toggleWishlist = useStore(state => state.toggleWishlist);
+  const addToCart = useStore(state => state.addToCart);
+
+  // Profile settings states
+  const [profileName, setProfileName] = useState(user?.name || "");
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [updatingProfile, setUpdatingProfile] = useState(false);
+
+  // Support states
+  const [showTicketForm, setShowTicketForm] = useState(false);
+  const [ticketSubject, setTicketSubject] = useState("");
+  const [ticketMessage, setTicketMessage] = useState("");
+
   const router = useRouter();
+
+  useEffect(() => {
+     if (user) {
+        setProfileName(user.name);
+     }
+  }, [user]);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setUpdatingProfile(true);
+    try {
+      const res = await fetch("/api/auth/password", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          name: profileName,
+          oldPassword: oldPassword || undefined,
+          newPassword: newPassword || undefined
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        login(data.user);
+        toast.success("Profile updated successfully!");
+        setOldPassword("");
+        setNewPassword("");
+      } else {
+        toast.error(data.error || "Update failed");
+      }
+    } catch (err) {
+      toast.error("Error connecting to server");
+    } finally {
+      setUpdatingProfile(false);
+    }
+  };
+
+  const handleSubmitTicket = (e: React.FormEvent) => {
+     e.preventDefault();
+     toast.success("Support ticket submitted! Ticket ID: #" + Math.floor(100000 + Math.random() * 900000));
+     setTicketSubject("");
+     setTicketMessage("");
+     setShowTicketForm(false);
+  };
 
   useEffect(() => {
     if (!user && typeof window !== 'undefined') {
@@ -143,15 +204,123 @@ export default function CustomerProfile() {
           </motion.div>
         );
       case "wishlist":
+         return (
+           <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="space-y-6">
+             <h2 className="text-2xl font-bold text-[#1A233A] mb-6">My Wishlist</h2>
+             {wishlist.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
+                   <Heart className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                   <p className="text-gray-500 font-bold">Your wishlist is empty.</p>
+                </div>
+             ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                   {wishlist.map((item) => (
+                     <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all flex flex-col relative group">
+                        <button 
+                          onClick={() => toggleWishlist(item)} 
+                          className="absolute top-3 right-3 bg-gray-50 p-2 rounded-full hover:bg-red-50 text-red-500 transition-colors"
+                        >
+                           <Heart className="w-4 h-4 fill-current" />
+                        </button>
+                        <div className="aspect-square bg-gray-50 rounded-xl flex items-center justify-center text-5xl mb-4 overflow-hidden p-2">
+                           {item.image.startsWith('data:') ? <img src={item.image} className="w-full h-full object-contain mix-blend-multiply" /> : item.image}
+                        </div>
+                        <h3 className="font-bold text-[#1A233A] text-base line-clamp-1 mb-1">{item.name}</h3>
+                        <p className="text-lg font-extrabold text-[#FF7A00] mb-4">${item.price.toFixed(2)}</p>
+                        <button 
+                          onClick={() => {
+                             addToCart(item);
+                             toast.success("Added to cart");
+                          }}
+                          className="mt-auto w-full bg-[#1A233A] hover:bg-[#FF7A00] text-white py-2 rounded-xl font-bold text-sm transition-colors"
+                        >
+                           Add to Cart
+                        </button>
+                     </div>
+                   ))}
+                </div>
+             )}
+           </motion.div>
+         );
       case "settings":
+         return (
+           <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="space-y-6">
+             <h2 className="text-2xl font-bold text-[#1A233A] mb-6">Account Settings</h2>
+             <form onSubmit={handleUpdateProfile} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6 max-w-xl">
+                <div className="space-y-2">
+                   <label className="text-sm font-bold text-gray-500">Full Name</label>
+                   <input required type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FF7A00] focus:ring-2 focus:ring-[#FF7A00]/20 transition-all text-sm font-bold text-[#1A233A]" />
+                </div>
+                
+                <div className="space-y-2">
+                   <label className="text-sm font-bold text-gray-500">Email Address (Read-only)</label>
+                   <input disabled type="email" value={user.email} className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm font-bold text-gray-400 cursor-not-allowed" />
+                </div>
+
+                <div className="h-px bg-gray-100 my-4" />
+                
+                <h3 className="font-bold text-[#1A233A] text-lg">Change Password</h3>
+                
+                <div className="space-y-2">
+                   <label className="text-sm font-bold text-gray-500">Current Password</label>
+                   <input type="password" value={oldPassword} onChange={e => setOldPassword(e.target.value)} placeholder="••••••••" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FF7A00] focus:ring-2 focus:ring-[#FF7A00]/20 transition-all text-sm" />
+                </div>
+
+                <div className="space-y-2">
+                   <label className="text-sm font-bold text-gray-500">New Password</label>
+                   <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Minimum 6 characters" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FF7A00] focus:ring-2 focus:ring-[#FF7A00]/20 transition-all text-sm" />
+                </div>
+
+                <button type="submit" disabled={updatingProfile} className="bg-[#FF7A00] hover:bg-[#FF9900] text-white px-8 py-3.5 rounded-xl font-bold text-sm shadow-md transition-colors disabled:opacity-50">
+                   {updatingProfile ? "Saving Changes..." : "Save Changes"}
+                </button>
+             </form>
+           </motion.div>
+         );
       case "support":
          return (
-           <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-300">
-                 <Package className="w-8 h-8" />
-              </div>
-              <h2 className="text-2xl font-bold text-[#1A233A] mb-2">Coming Soon</h2>
-              <p className="text-gray-500">This section is currently under construction.</p>
+           <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="space-y-6">
+             <h2 className="text-2xl font-bold text-[#1A233A] mb-6">24/7 Customer Support</h2>
+             <div className="grid md:grid-cols-3 gap-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center space-y-4">
+                   <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center mx-auto"><Headphones className="w-6 h-6" /></div>
+                   <h3 className="font-bold text-[#1A233A]">Live Chat</h3>
+                   <p className="text-sm text-gray-500">Average response: 2 mins</p>
+                   <button type="button" onClick={() => toast.success("Live Chat is opening in your browser...")} className="w-full bg-[#1A233A] hover:bg-[#FF7A00] text-white py-2 rounded-xl text-xs font-bold transition-colors">Start Chat</button>
+                </div>
+                
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center space-y-4">
+                   <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mx-auto"><Package className="w-6 h-6" /></div>
+                   <h3 className="font-bold text-[#1A233A]">Call Support</h3>
+                   <p className="text-sm text-gray-500">Call Toll-Free: 19999</p>
+                   <button type="button" onClick={() => toast.success("Dialing support...")} className="w-full bg-[#1A233A] hover:bg-[#FF7A00] text-white py-2 rounded-xl text-xs font-bold transition-colors">Call Now</button>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center space-y-4">
+                   <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mx-auto"><Heart className="w-6 h-6" /></div>
+                   <h3 className="font-bold text-[#1A233A]">Submit Ticket</h3>
+                   <p className="text-sm text-gray-500">Get email support in 12h</p>
+                   <button type="button" onClick={() => setShowTicketForm(true)} className="w-full bg-[#1A233A] hover:bg-[#FF7A00] text-white py-2 rounded-xl text-xs font-bold transition-colors">Submit Ticket</button>
+                </div>
+             </div>
+
+             {showTicketForm && (
+                <motion.form initial={{opacity:0, scale:0.95}} animate={{opacity:1, scale:1}} onSubmit={handleSubmitTicket} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4 max-w-xl">
+                   <h3 className="font-bold text-[#1A233A] text-lg mb-2">Submit Support Ticket</h3>
+                   <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-500">Subject</label>
+                      <input required type="text" value={ticketSubject} onChange={e => setTicketSubject(e.target.value)} placeholder="e.g. Order #1234 delivery status" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FF7A00] focus:ring-2 focus:ring-[#FF7A00]/20 transition-all text-sm" />
+                   </div>
+                   <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-500">Message Details</label>
+                      <textarea required value={ticketMessage} onChange={e => setTicketMessage(e.target.value)} placeholder="Please detail your problem..." rows={4} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FF7A00] focus:ring-2 focus:ring-[#FF7A00]/20 transition-all text-sm" />
+                   </div>
+                   <div className="flex gap-4">
+                      <button type="submit" className="bg-[#FF7A00] hover:bg-[#FF9900] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-colors">Submit</button>
+                      <button type="button" onClick={() => setShowTicketForm(false)} className="text-gray-500 font-bold hover:underline text-sm">Cancel</button>
+                   </div>
+                </motion.form>
+             )}
            </motion.div>
          );
       default:

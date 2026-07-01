@@ -45,6 +45,8 @@ export interface StoreState {
   adminLogout: () => void;
   sellerLogin: () => void;
   sellerLogout: () => void;
+  wishlist: Product[];
+  toggleWishlist: (product: Product) => void;
 }
 
 export const useStore = create<StoreState>()(
@@ -56,6 +58,7 @@ export const useStore = create<StoreState>()(
       isAdminAuth: false,
       isSellerAuth: false,
       productsLoaded: false,
+      wishlist: [],
 
       fetchProducts: async (force = false) => {
         // Don't refetch if already loaded, unless forced
@@ -114,6 +117,15 @@ export const useStore = create<StoreState>()(
       })),
 
       clearCart: () => set({ cart: [] }),
+
+      toggleWishlist: (product) => set((state) => {
+        const exists = state.wishlist.some(p => p.id === product.id);
+        if (exists) {
+          return { wishlist: state.wishlist.filter(p => p.id !== product.id) };
+        } else {
+          return { wishlist: [...state.wishlist, product] };
+        }
+      }),
     }),
     {
       name: 'enterprise-commerce-storage',
@@ -125,6 +137,7 @@ export const useStore = create<StoreState>()(
         isSellerAuth: state.isSellerAuth,
         products: state.products,
         productsLoaded: state.productsLoaded,
+        wishlist: state.wishlist,
       }),
     }
   )

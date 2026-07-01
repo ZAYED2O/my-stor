@@ -4,12 +4,15 @@ import { useStore } from "@/store/useStore";
 import { toast } from "sonner";
 import { useState, useEffect, Suspense } from "react";
 import Header from "../components/Header";
-import { Filter, Star, ShoppingCart, SearchX } from "lucide-react";
+import { Filter, Star, ShoppingCart, SearchX, Heart } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 function ProductGrid({ categoryFilter, maxPrice }: { categoryFilter: string, maxPrice: number }) {
   const products = useStore((state) => state.products);
   const addToCart = useStore((state) => state.addToCart);
+  const wishlist = useStore((state) => state.wishlist || []);
+  const toggleWishlist = useStore((state) => state.toggleWishlist);
+  const isInWishlist = (id: string) => wishlist.some(p => p.id === id);
   const searchParams = useSearchParams();
   const query = searchParams.get('q');
   
@@ -75,6 +78,11 @@ function ProductGrid({ categoryFilter, maxPrice }: { categoryFilter: string, max
                      ) : (
                         <span className="group-hover:scale-110 transition-transform duration-300">{product.image}</span>
                      )}
+                     
+                     {/* Wishlist Button */}
+                     <button onClick={() => toggleWishlist(product)} className="absolute top-3 right-3 bg-white p-2 rounded-full shadow hover:bg-gray-100 transition-all z-10">
+                        <Heart className={`w-4 h-4 ${isInWishlist(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+                     </button>
                      
                      {/* Floating Quick Action */}
                      <div className="absolute bottom-4 right-4 translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">

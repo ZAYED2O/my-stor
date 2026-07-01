@@ -1,48 +1,74 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
-
-const dbPath = path.join(process.cwd(), 'users.json');
-
-async function getDb() {
-  try {
-    const data = await fs.readFile(dbPath, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    return { users: [] };
-  }
-}
-
-async function saveDb(db: any) {
-  await fs.writeFile(dbPath, JSON.stringify(db, null, 2));
-}
+import { supabase } from '@/lib/supabase';
+import bcrypt from 'bcryptjs';
 
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { email, oldPassword, newPassword } = body;
+    const { email, name, oldPassword, newPassword } = body;
 
-    if (!email || !oldPassword || !newPassword) {
-      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    const db = await getDb();
-    const userIndex = db.users.findIndex((u: any) => u.email === email);
+    // Get user from Supabase
+    const { data: user, error } = await supabase
+      .from('ec_users')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
 
-    if (userIndex === -1) {
+    if (error || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (db.users[userIndex].password !== oldPassword) {
-      return NextResponse.json({ error: 'Incorrect old password' }, { status: 401 });
+    const updates: any = {};
+
+    if (name) {
+      updates.name = name;
     }
 
-    // Update password
-    db.users[userIndex].password = newPassword;
-    await saveDb(db);
+    if (newPassword) {
+      if (!oldPassword) {
+        return NextResponse.json({ error: 'Old password is required to set new password' }, { status: 400 });
+      }
 
-    return NextResponse.json({ message: 'Password updated successfully' }, { status: 200 });
+      const isValidPassword = await bcrypt.compare(oldPassword, user.password);
+      if (!isValidPassword) {
+        return NextResponse.json({ error: 'Incorrect old password' }, { status: 401 });
+      }
+
+      updates.password = await bcrypt.hash(newPassword, 10);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+
+    const { error: updateError } = await supabase
+      .from('ec_users')
+      .update(updates)
+      .eq('email', email);
+
+    if (updateError) {
+      console.error('Update user error:', updateError.message);
+      return NextResponse.json({ error: 'Could not update profile' }, { status: 500 });
+    }
+
+    // Fetch updated user to return
+    const { data: updatedUser } = await supabase
+      .from('ec_users')
+      .select('id, name, email, role')
+      .eq('email', email)
+      .single();
+
+    return NextResponse.json({ 
+      message: 'Profile updated successfully',
+      user: updatedUser
+    }, { status: 200 });
+
   } catch (error) {
+    console.error('PATCH /api/auth/password error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
