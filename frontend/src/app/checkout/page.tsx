@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { useStore } from "@/store/useStore";
 import { toast } from "sonner";
 import Link from "next/link";
-import { Lock, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Lock, ShieldCheck, CheckCircle2, LogIn } from "lucide-react";
 
 export default function CheckoutPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
   
   // Payment states
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod' | 'wallet'>('card');
@@ -19,6 +21,7 @@ export default function CheckoutPage() {
   
   const cart = useStore((state) => state.cart);
   const clearCart = useStore((state) => state.clearCart);
+  const user = useStore((state) => state.user);
   
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
@@ -37,6 +40,38 @@ export default function CheckoutPage() {
   }, [availableMethods, paymentMethod]);
 
   if (!isMounted) return null;
+
+  // Block guests from checking out
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center p-4">
+        <div className="bg-white max-w-md w-full rounded-2xl p-8 text-center shadow-sm border border-gray-100">
+          <div className="w-20 h-20 bg-[#FF7A00]/10 text-[#FF7A00] rounded-full flex items-center justify-center mb-6 mx-auto">
+            <LogIn className="w-10 h-10" />
+          </div>
+          <h1 className="text-2xl font-extrabold text-[#1A233A] mb-3">Sign In Required</h1>
+          <p className="text-gray-500 mb-8 leading-relaxed">
+            You need an account to complete your purchase. Please sign in or create a free account to continue.
+          </p>
+          <Link
+            href="/login?returnTo=/checkout"
+            className="w-full bg-[#FF7A00] hover:bg-[#FF9900] text-white py-4 rounded-xl font-bold text-lg transition-all block mb-3"
+          >
+            Sign In to Continue
+          </Link>
+          <Link
+            href="/register"
+            className="w-full bg-[#1A233A] hover:bg-[#2a3759] text-white py-4 rounded-xl font-bold text-lg transition-all block mb-4"
+          >
+            Create Free Account
+          </Link>
+          <Link href="/cart" className="text-gray-400 text-sm hover:underline">
+            ← Back to Cart
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);

@@ -10,6 +10,7 @@ export default function CartPage() {
   const cart = useStore((state) => state.cart);
   const updateQuantity = useStore((state) => state.updateQuantity);
   const removeItem = useStore((state) => state.removeFromCart);
+  const user = useStore((state) => state.user);
   
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
@@ -98,9 +99,23 @@ export default function CartPage() {
                      <span className="text-3xl font-extrabold text-[#1A233A]">${subtotal.toFixed(2)}</span>
                   </div>
 
-                  <Link href="/checkout" className="w-full flex items-center justify-center gap-2 bg-[#FF7A00] hover:bg-[#FF9900] text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-[#FF7A00]/20 transition-all hover:scale-[1.02]">
-                     Proceed to Checkout <ArrowRight className="w-5 h-5" />
-                  </Link>
+                  {user ? (
+                    <Link href="/checkout" className="w-full flex items-center justify-center gap-2 bg-[#FF7A00] hover:bg-[#FF9900] text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-[#FF7A00]/20 transition-all hover:scale-[1.02]">
+                      Proceed to Checkout <ArrowRight className="w-5 h-5" />
+                    </Link>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-center text-sm text-gray-500 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                        🔒 Please sign in to complete your purchase
+                      </p>
+                      <Link href="/login?returnTo=/checkout" className="w-full flex items-center justify-center gap-2 bg-[#FF7A00] hover:bg-[#FF9900] text-white py-3 rounded-xl font-bold text-base transition-all block text-center">
+                        Sign In to Checkout
+                      </Link>
+                      <Link href="/register" className="w-full flex items-center justify-center gap-2 bg-[#1A233A] hover:bg-[#2a3759] text-white py-3 rounded-xl font-bold text-base transition-all block text-center">
+                        Create Free Account
+                      </Link>
+                    </div>
+                  )}
 
                   <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500">
                      <ShieldCheck className="w-4 h-4 text-emerald-600" /> Secure SSL Encrypted Payment
