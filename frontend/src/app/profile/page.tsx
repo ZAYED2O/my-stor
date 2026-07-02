@@ -1,7 +1,7 @@
 "use client";
 
 import Header from "../components/Header";
-import { Package, Heart, MapPin, CreditCard, Headphones, UserCircle, CheckCircle2, ChevronLeft, LogOut, Clock, Truck, Send, MessageSquare, X } from "lucide-react";
+import { Package, Heart, MapPin, CreditCard, Headphones, UserCircle, CheckCircle2, ChevronLeft, LogOut, Clock, Truck, Send, MessageSquare, X, Mic, Square } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@/store/useStore";
@@ -38,6 +38,7 @@ export default function CustomerProfile() {
 
   // Profile settings states
   const [profileName, setProfileName] = useState(user?.name || "");
+  const [profileAvatar, setProfileAvatar] = useState(user?.avatar || "");
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [updatingProfile, setUpdatingProfile] = useState(false);
@@ -48,6 +49,21 @@ export default function CustomerProfile() {
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [ticketSubject, setTicketSubject] = useState("");
   const [ticketMessage, setTicketMessage] = useState("");
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+     const file = e.target.files?.[0];
+     if (file) {
+        if (file.size > 1 * 1024 * 1024) {
+           toast.error("Image size must be less than 1MB");
+           return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+           setProfileAvatar(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+     }
+  };
   
   // Live Chat states
   const [chatOpen, setChatOpen] = useState(false);
@@ -68,6 +84,7 @@ export default function CustomerProfile() {
   useEffect(() => {
      if (user) {
         setProfileName(user.name);
+        setProfileAvatar(user.avatar || "");
         fetchOrders();
      }
   }, [user]);
@@ -134,6 +151,7 @@ export default function CustomerProfile() {
         body: JSON.stringify({
           email: user.email,
           name: profileName,
+          avatar: profileAvatar || undefined,
           oldPassword: oldPassword || undefined,
           newPassword: newPassword || undefined
         })
@@ -226,24 +244,145 @@ export default function CustomerProfile() {
      }
   };
 
-  const handleSendChatMessage = (e: React.FormEvent) => {
-     e.preventDefault();
-     if (!chatInput.trim()) return;
-     const userMsg = { sender: 'user', text: chatInput, time: new Date() };
-     setChatMessages(prev => [...prev, userMsg]);
-     const currentInput = chatInput;
-     setChatInput("");
-     
-     setTimeout(() => {
-        let reply = "شكراً لتواصلك معنا! سيقوم أحد ممثلي الدعم بالرد عليك قريباً. يمكنك أيضاً إنشاء تذكرة دعم لمتابعتها عبر البريد الإلكتروني.";
-        if (currentInput.toLowerCase().includes("order") || currentInput.includes("طلب") || currentInput.includes("شحن")) {
-           reply = "لمعرفة حالة طلبك، يمكنك التوجه إلى قسم 'Order History' (تاريخ الطلبات) في صفحة حسابك الشخصي.";
-        } else if (currentInput.toLowerCase().includes("cancel") || currentInput.includes("الغاء") || currentInput.includes("إلغاء")) {
-           reply = "يمكنك إلغاء أي طلب بحالة 'Pending' مباشرة من قائمة تاريخ الطلبات بالضغط على زر 'Cancel Order'.";
-        }
-        setChatMessages(prev => [...prev, { sender: 'bot', text: reply, time: new Date() }]);
-     }, 1000);
-  };
+   // Real-time Chat States
+   const [activeChannel, setActiveChannel] = useState<any | null>(null);
+   const [isRecording, setIsRecording] = useState(false);
+   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+   const [recordingDuration, setRecordingDuration] = useState(0);
+   const durationInterval = useRef<any>(null);
+   const pollInterval = useRef<any>(null);
+
+   const startChat = async () => {
+      setChatOpen(true);
+      try {
+         const res = await fetch("/api/chat/channels", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+               type: "customer_support",
+               creator_id: user.name || user.email,
+               subject: "Customer Live Chat inquiry"
+            })
+         });
+         const data = await res.json();
+         if (res.ok && data.channel) {
+            setActiveChannel(data.channel);
+            fetchChatMessages(data.channel.id);
+         }
+      } catch (err) {
+         console.error("Failed to start chat channel");
+      }
+   };
+
+   const fetchChatMessages = async (channelId: string) => {
+      try {
+         const res = await fetch(`/api/chat/messages?channelId=${channelId}`);
+         const data = await res.json();
+         if (res.ok) {
+            setChatMessages(data.messages || []);
+         }
+      } catch (err) {
+         console.error("Failed to fetch messages");
+      }
+   };
+
+   const handleSendChatMessage = async (e?: React.FormEvent, audioBase64?: string) => {
+      if (e) e.preventDefault();
+      if (!chatInput.trim() && !audioBase64) return;
+      if (!user) return;
+
+      let channelId = activeChannel?.id;
+      if (!channelId) {
+         await startChat();
+         return;
+      }
+
+      const payload = {
+         channelId,
+         senderId: user.id || user.email,
+         senderName: user.name,
+         senderRole: "user",
+         message: audioBase64 ? null : chatInput,
+         audioData: audioBase64 || null
+      };
+
+      setChatInput("");
+
+      try {
+         const res = await fetch("/api/chat/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+         });
+         if (res.ok) {
+            fetchChatMessages(channelId);
+         }
+      } catch (err) {
+         toast.error("Failed to send message");
+      }
+   };
+
+   // Media Recorder Voice Functions
+   const startRecording = async () => {
+      try {
+         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+         const recorder = new MediaRecorder(stream);
+         setMediaRecorder(recorder);
+         setAudioChunks([]);
+         setRecordingDuration(0);
+
+         recorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+               setAudioChunks((prev) => [...prev, event.data]);
+            }
+         };
+
+         recorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = () => {
+               const base64Audio = reader.result as string;
+               handleSendChatMessage(undefined, base64Audio);
+            };
+            stream.getTracks().forEach((track) => track.stop());
+         };
+
+         recorder.start();
+         setIsRecording(true);
+
+         durationInterval.current = setInterval(() => {
+            setRecordingDuration((prev) => prev + 1);
+         }, 1000);
+      } catch (err) {
+         toast.error("Microphone access denied");
+      }
+   };
+
+   const stopRecording = () => {
+      if (mediaRecorder && isRecording) {
+         mediaRecorder.stop();
+         setIsRecording(false);
+         clearInterval(durationInterval.current);
+      }
+   };
+
+   const formatDuration = (seconds: number) => {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+   };
+
+   useEffect(() => {
+      if (activeChannel && chatOpen) {
+         clearInterval(pollInterval.current);
+         pollInterval.current = setInterval(() => fetchChatMessages(activeChannel.id), 3000);
+      } else {
+         clearInterval(pollInterval.current);
+      }
+      return () => clearInterval(pollInterval.current);
+   }, [activeChannel, chatOpen]);
 
   const cards = [
     { id: "orders", icon: Package, title: "Order History", desc: "Track, return, or cancel your orders" },
@@ -475,6 +614,24 @@ export default function CustomerProfile() {
            <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="space-y-6">
              <h2 className="text-2xl font-bold text-[#1A233A] mb-6">Account Settings</h2>
              <form onSubmit={handleUpdateProfile} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6 max-w-xl">
+                {/* Avatar Upload */}
+                <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                   <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center text-gray-400 overflow-hidden shadow-inner border border-gray-200 flex-shrink-0">
+                      {profileAvatar ? (
+                         <img src={profileAvatar} className="w-full h-full object-cover" />
+                      ) : (
+                         <UserCircle className="w-12 h-12 text-gray-300" />
+                      )}
+                   </div>
+                   <div>
+                      <label className="bg-[#1A233A] hover:bg-[#FF7A00] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer inline-block shadow-sm">
+                         Upload Photo
+                         <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                      </label>
+                      <p className="text-gray-400 text-xs mt-1.5">JPG, PNG under 1MB</p>
+                   </div>
+                </div>
+
                 <div className="space-y-2">
                    <label className="text-sm font-bold text-gray-500">Full Name</label>
                    <input required type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FF7A00] focus:ring-2 focus:ring-[#FF7A00]/20 transition-all text-sm font-bold text-[#1A233A]" />
@@ -514,7 +671,7 @@ export default function CustomerProfile() {
                    <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center mx-auto"><MessageSquare className="w-6 h-6" /></div>
                    <h3 className="font-bold text-[#1A233A]">Live Chat</h3>
                    <p className="text-sm text-gray-500">Average response: 2 mins</p>
-                   <button type="button" onClick={() => setChatOpen(true)} className="w-full bg-[#1A233A] hover:bg-[#FF7A00] text-white py-2 rounded-xl text-xs font-bold transition-colors">Start Chat</button>
+                   <button type="button" onClick={startChat} className="w-full bg-[#1A233A] hover:bg-[#FF7A00] text-white py-2 rounded-xl text-xs font-bold transition-colors">Start Chat</button>
                 </div>
                 
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center space-y-4">
@@ -600,8 +757,12 @@ export default function CustomerProfile() {
          {/* Profile Banner */}
          <div className="bg-[#1A233A] rounded-3xl p-8 mb-8 flex items-center gap-6 shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#FF7A00] opacity-10 blur-3xl rounded-full"></div>
-            <div className="w-24 h-24 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center text-white relative z-10 border border-white/20">
-               <UserCircle className="w-12 h-12" />
+            <div className="w-24 h-24 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center text-white relative z-10 border border-white/20 overflow-hidden">
+               {user.avatar ? (
+                  <img src={user.avatar} className="w-full h-full object-cover" alt={user.name} />
+               ) : (
+                  <UserCircle className="w-12 h-12" />
+               )}
             </div>
             <div className="relative z-10 flex-1">
                <h1 className="text-3xl font-extrabold text-white">{user.name}</h1>
@@ -661,9 +822,9 @@ export default function CustomerProfile() {
       <AnimatePresence>
          {chatOpen && (
             <motion.div 
-               initial={{opacity: 0, y: 100}}
-               animate={{opacity: 1, y: 0}}
-               exit={{opacity: 0, y: 100}}
+               initial={{ opacity: 0, y: 100 }}
+               animate={{ opacity: 1, y: 0 }}
+               exit={{ opacity: 0, y: 100 }}
                className="fixed bottom-6 right-6 z-[100] w-[350px] h-[450px] bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
             >
                {/* Chat Header */}
@@ -678,29 +839,58 @@ export default function CustomerProfile() {
                </div>
                
                {/* Chat Messages */}
-               <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50 text-xs">
-                  {chatMessages.map((msg, i) => (
-                     <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] rounded-2xl p-3 leading-relaxed shadow-sm ${
-                           msg.sender === 'user' ? 'bg-[#FF7A00] text-white rounded-tr-none' : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
-                        }`}>
-                           {msg.text}
-                        </div>
-                     </div>
-                  ))}
+               <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50 text-xs flex flex-col">
+                  {chatMessages.length === 0 ? (
+                     <p className="text-gray-400 text-center italic my-auto">ابدأ المحادثة مع الدعم الفني الآن</p>
+                  ) : (
+                     chatMessages.map((msg, i) => {
+                        const isMe = msg.sender_role === 'user';
+                        return (
+                           <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[80%] rounded-2xl p-3 leading-relaxed shadow-sm ${
+                                 isMe ? 'bg-[#FF7A00] text-white rounded-tr-none' : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
+                              }`}>
+                                 {msg.message && <p>{msg.message}</p>}
+                                 {msg.audio_data && (
+                                    <audio src={msg.audio_data} controls className="h-8 w-40 mt-1 outline-none bg-black/5 rounded" />
+                                 )}
+                                 <div className="flex justify-between gap-4 mt-1 opacity-70 text-[8px]">
+                                    <span>{msg.sender_name}</span>
+                                    <span>{new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                 </div>
+                              </div>
+                           </div>
+                        );
+                     })
+                  )}
                   <div ref={chatEndRef} />
                </div>
 
                {/* Chat Input */}
-               <form onSubmit={handleSendChatMessage} className="p-3 border-t border-gray-100 flex gap-2">
+               <form onSubmit={(e) => handleSendChatMessage(e)} className="p-3 border-t border-gray-100 flex gap-2 items-center bg-white">
                   <input 
                     type="text" 
                     value={chatInput} 
+                    disabled={isRecording}
                     onChange={e => setChatInput(e.target.value)} 
-                    placeholder="اكتب رسالتك..." 
-                    className="flex-1 bg-gray-50 rounded-xl px-3 py-2 outline-none text-xs focus:ring-1 focus:ring-[#FF7A00]" 
+                    placeholder={isRecording ? "جاري تسجيل الصوت..." : "اكتب رسالة..."} 
+                    className="flex-1 bg-gray-50 rounded-xl px-3 py-2 outline-none text-xs focus:ring-1 focus:ring-[#FF7A00] disabled:opacity-50 text-[#1A233A] font-bold" 
                   />
-                  <button type="submit" className="bg-[#FF7A00] hover:bg-[#FF9900] text-white p-2 rounded-xl transition-colors">
+
+                  {isRecording ? (
+                     <div className="flex items-center gap-1 bg-red-50 text-red-500 px-2.5 py-1.5 rounded-xl border border-red-100 text-[10px]">
+                        <span className="font-mono">{formatDuration(recordingDuration)}</span>
+                        <button type="button" onClick={stopRecording} className="hover:bg-red-100 p-1 rounded-lg">
+                           <Square className="w-3 h-3" />
+                        </button>
+                     </div>
+                  ) : (
+                     <button type="button" onClick={startRecording} className="p-2 bg-gray-50 hover:bg-[#FF7A00]/10 text-gray-500 hover:text-[#FF7A00] rounded-xl transition-all">
+                        <Mic className="w-4 h-4" />
+                     </button>
+                  )}
+
+                  <button type="submit" disabled={isRecording} className="bg-[#FF7A00] hover:bg-[#FF9900] text-white p-2 rounded-xl transition-colors disabled:opacity-50">
                      <Send className="w-4 h-4" />
                   </button>
                </form>

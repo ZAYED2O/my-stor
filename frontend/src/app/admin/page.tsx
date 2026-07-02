@@ -1,26 +1,212 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Package, TrendingUp, Users, ShoppingBag, Clock, CheckCircle2, Headphones, HelpCircle, MessageSquare, Send, X } from "lucide-react";
+import { Package, TrendingUp, Users, ShoppingBag, Clock, CheckCircle2, Headphones, HelpCircle, MessageSquare, Send, X, Mic, Square, ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRef } from "react";
 
 export default function AdminDashboard() {
   const [orders, setOrders] = useState<any[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [loadingTickets, setLoadingTickets] = useState(true);
-  const [activeTab, setActiveTab] = useState<"orders" | "tickets">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "tickets" | "chat">("orders");
 
   // Admin reply states
   const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
   const [ticketReply, setTicketReply] = useState("");
   const [submittingReply, setSubmittingReply] = useState(false);
 
+  // Admin Live Chat Center states
+  const [chatChannels, setChatChannels] = useState<any[]>([]);
+  const [selectedChannel, setSelectedChannel] = useState<any | null>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [loadingChat, setLoadingChat] = useState(true);
+  
+  // Broadcast states
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [broadcastMsg, setBroadcastMsg] = useState("");
+  const [submittingBroadcast, setSubmittingBroadcast] = useState(false);
+
+  // Audio Recording States
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const durationInterval = useRef<any>(null);
+
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const pollInterval = useRef<any>(null);
+  const channelsPollInterval = useRef<any>(null);
+
   useEffect(() => {
     fetchOrders();
     fetchTickets();
   }, []);
+
+  // Load and poll chat channels if chat tab is active
+  useEffect(() => {
+    if (activeTab === "chat") {
+      fetchChatChannels();
+      channelsPollInterval.current = setInterval(fetchChatChannels, 5000);
+    } else {
+      clearInterval(channelsPollInterval.current);
+    }
+    return () => clearInterval(channelsPollInterval.current);
+  }, [activeTab]);
+
+  // Load and poll chat messages when active channel is selected
+  useEffect(() => {
+    if (selectedChannel && activeTab === "chat") {
+      fetchChatMessages(selectedChannel.id);
+      clearInterval(pollInterval.current);
+      pollInterval.current = setInterval(() => fetchChatMessages(selectedChannel.id), 3000);
+    } else {
+      setChatMessages([]);
+      clearInterval(pollInterval.current);
+    }
+    return () => clearInterval(pollInterval.current);
+  }, [selectedChannel, activeTab]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  const fetchChatChannels = async () => {
+    try {
+      const res = await fetch("/api/chat/channels?role=super_admin");
+      const data = await res.json();
+      if (res.ok) {
+        setChatChannels(data.channels || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch chat channels");
+    } finally {
+      setLoadingChat(false);
+    }
+  };
+
+  const fetchChatMessages = async (channelId: string) => {
+    try {
+      const res = await fetch(`/api/chat/messages?channelId=${channelId}`);
+      const data = await res.json();
+      if (res.ok) {
+        setChatMessages(data.messages || []);
+      }
+    } catch (err) {
+      console.error("Failed to load chat messages");
+    }
+  };
+
+  const handleSendChatMessage = async (e?: React.FormEvent, audioBase64?: string) => {
+    if (e) e.preventDefault();
+    if (!chatInput.trim() && !audioBase64) return;
+    if (!selectedChannel) return;
+
+    const payload = {
+      channelId: selectedChannel.id,
+      senderId: "admin-001",
+      senderName: "مدير النظام",
+      senderRole: "admin",
+      message: audioBase64 ? null : chatInput,
+      audioData: audioBase64 || null
+    };
+
+    setChatInput("");
+
+    try {
+      const res = await fetch("/api/chat/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        fetchChatMessages(selectedChannel.id);
+      }
+    } catch (err) {
+      toast.error("Failed to send message");
+    }
+  };
+
+  const handleBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastMsg.trim()) return;
+    setSubmittingBroadcast(true);
+
+    try {
+      const res = await fetch("/api/admin/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: broadcastMsg })
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success(data.message || "Broadcast sent successfully!");
+        setBroadcastMsg("");
+        setBroadcastOpen(false);
+      } else {
+        toast.error(data.error || "Failed to send broadcast");
+      }
+    } catch (err) {
+      toast.error("Connection failed");
+    } finally {
+      setSubmittingBroadcast(false);
+    }
+  };
+
+  // Recording functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      setMediaRecorder(recorder);
+      setAudioChunks([]);
+      setRecordingDuration(0);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          setAudioChunks((prev) => [...prev, event.data]);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64Audio = reader.result as string;
+          handleSendChatMessage(undefined, base64Audio);
+        };
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      recorder.start();
+      setIsRecording(true);
+
+      durationInterval.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+    } catch (err) {
+      toast.error("Microphone access denied or unavailable");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      clearInterval(durationInterval.current);
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
 
   const fetchOrders = async () => {
     setLoadingOrders(true);
@@ -117,11 +303,17 @@ export default function AdminDashboard() {
                <h1 className="text-3xl font-extrabold text-[#1A233A]">Admin Control Panel</h1>
                <p className="text-gray-500 mt-1">Manage orders, update dispatch status, and reply to client inquiries.</p>
             </div>
-            <div className="flex items-center gap-3">
-               <button onClick={() => { fetchOrders(); fetchTickets(); }} className="bg-white border border-gray-200 text-[#1A233A] font-bold px-4 py-2.5 rounded-xl shadow-sm hover:border-[#FF7A00] transition-colors text-sm">
-                  Refresh Data
-               </button>
-            </div>
+             <div className="flex items-center gap-3">
+                <button 
+                   onClick={() => setBroadcastOpen(true)}
+                   className="bg-[#FF7A00] hover:bg-[#FF9900] text-white font-bold px-4 py-2.5 rounded-xl shadow-md transition-colors text-sm"
+                >
+                   إرسال رسالة جماعية للعملاء
+                </button>
+                <button onClick={() => { fetchOrders(); fetchTickets(); fetchChatChannels(); }} className="bg-white border border-gray-200 text-[#1A233A] font-bold px-4 py-2.5 rounded-xl shadow-sm hover:border-[#FF7A00] transition-colors text-sm">
+                   Refresh Data
+                </button>
+             </div>
          </div>
 
          {/* Stats Grid */}
@@ -152,6 +344,12 @@ export default function AdminDashboard() {
                className={`px-6 py-3 font-bold text-sm border-b-2 transition-all ${activeTab === "tickets" ? "border-[#FF7A00] text-[#FF7A00]" : "border-transparent text-gray-400 hover:text-[#1A233A]"}`}
             >
                Support Tickets ({tickets.filter(t => t.status === "Open").length} Open)
+            </button>
+            <button 
+               onClick={() => setActiveTab("chat")}
+               className={`px-6 py-3 font-bold text-sm border-b-2 transition-all ${activeTab === "chat" ? "border-[#FF7A00] text-[#FF7A00]" : "border-transparent text-gray-400 hover:text-[#1A233A]"}`}
+            >
+               Live Chat Center ({chatChannels.filter(c => c.status === "open").length} Active)
             </button>
          </div>
 
@@ -215,66 +413,183 @@ export default function AdminDashboard() {
                   </table>
                </div>
             </div>
-         ) : (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-               <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                  <h2 className="text-xl font-bold text-[#1A233A] flex items-center gap-2">
-                     <Headphones className="w-5 h-5 text-[#FF7A00]" /> Customer Support Tickets
-                  </h2>
-               </div>
+         ) : activeTab === "tickets" ? (
+             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                   <h2 className="text-xl font-bold text-[#1A233A] flex items-center gap-2">
+                      <Headphones className="w-5 h-5 text-[#FF7A00]" /> Customer Support Tickets
+                   </h2>
+                </div>
 
-               <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                     <thead>
-                        <tr className="bg-gray-50 text-gray-500 text-xs border-b border-gray-100">
-                           <th className="p-4 font-bold uppercase tracking-wider">Ticket ID</th>
-                           <th className="p-4 font-bold uppercase tracking-wider">Date</th>
-                           <th className="p-4 font-bold uppercase tracking-wider">Client Email</th>
-                           <th className="p-4 font-bold uppercase tracking-wider">Subject</th>
-                           <th className="p-4 font-bold uppercase tracking-wider">Status</th>
-                           <th className="p-4 font-bold uppercase tracking-wider text-right">Action</th>
-                        </tr>
-                     </thead>
-                     <tbody>
-                        {loadingTickets ? (
-                           <tr><td colSpan={6} className="p-8 text-center text-gray-400">Loading tickets...</td></tr>
-                        ) : tickets.length === 0 ? (
-                           <tr><td colSpan={6} className="p-8 text-center text-gray-400">No support tickets found.</td></tr>
-                        ) : (
-                           tickets.map((ticket: any) => (
-                              <tr key={ticket.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors text-sm">
-                                 <td className="p-4 font-bold text-[#1A233A]">{ticket.id}</td>
-                                 <td className="p-4 text-gray-500">{new Date(ticket.createdAt).toLocaleDateString()}</td>
-                                 <td className="p-4 text-[#1A233A] font-medium">{ticket.customerEmail}</td>
-                                 <td className="p-4 font-medium text-[#1A233A]">
-                                    {ticket.subject}
-                                    <p className="text-xs text-gray-400 font-normal mt-1 max-w-sm truncate">{ticket.message}</p>
-                                 </td>
-                                 <td className="p-4">
-                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                                       ticket.status === 'Open' ? 'bg-amber-100 text-amber-700' :
-                                       ticket.status === 'Replied' ? 'bg-blue-100 text-blue-700' :
-                                       'bg-emerald-100 text-emerald-700'
-                                    }`}>
-                                       {ticket.status}
-                                    </span>
-                                 </td>
-                                 <td className="p-4 text-right">
-                                    <button 
-                                       onClick={() => setSelectedTicket(ticket)}
-                                       className="bg-[#1A233A] hover:bg-[#FF7A00] text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
-                                    >
-                                       {ticket.reply ? "View & Edit Reply" : "Reply Ticket"}
-                                    </button>
-                                 </td>
-                              </tr>
-                           ))
-                        )}
-                     </tbody>
-                  </table>
-               </div>
-            </div>
-         )}
+                <div className="overflow-x-auto">
+                   <table className="w-full text-left border-collapse">
+                      <thead>
+                         <tr className="bg-gray-50 text-gray-500 text-xs border-b border-gray-100">
+                            <th className="p-4 font-bold uppercase tracking-wider">Ticket ID</th>
+                            <th className="p-4 font-bold uppercase tracking-wider">Date</th>
+                            <th className="p-4 font-bold uppercase tracking-wider">Client Email</th>
+                            <th className="p-4 font-bold uppercase tracking-wider">Subject</th>
+                            <th className="p-4 font-bold uppercase tracking-wider">Status</th>
+                            <th className="p-4 font-bold uppercase tracking-wider text-right">Action</th>
+                         </tr>
+                      </thead>
+                      <tbody>
+                         {loadingTickets ? (
+                            <tr><td colSpan={6} className="p-8 text-center text-gray-400">Loading tickets...</td></tr>
+                         ) : tickets.length === 0 ? (
+                            <tr><td colSpan={6} className="p-8 text-center text-gray-400">No support tickets found.</td></tr>
+                         ) : (
+                            tickets.map((ticket: any) => (
+                               <tr key={ticket.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors text-sm">
+                                  <td className="p-4 font-bold text-[#1A233A]">{ticket.id}</td>
+                                  <td className="p-4 text-gray-500">{new Date(ticket.createdAt).toLocaleDateString()}</td>
+                                  <td className="p-4 text-[#1A233A] font-medium">{ticket.customerEmail}</td>
+                                  <td className="p-4 font-medium text-[#1A233A]">
+                                     {ticket.subject}
+                                     <p className="text-xs text-gray-400 font-normal mt-1 max-w-sm truncate">{ticket.message}</p>
+                                  </td>
+                                  <td className="p-4">
+                                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                        ticket.status === 'Open' ? 'bg-amber-100 text-amber-700' :
+                                        ticket.status === 'Replied' ? 'bg-blue-100 text-blue-700' :
+                                        'bg-emerald-100 text-emerald-700'
+                                     }`}>
+                                        {ticket.status}
+                                     </span>
+                                  </td>
+                                  <td className="p-4 text-right">
+                                     <button 
+                                        onClick={() => setSelectedTicket(ticket)}
+                                        className="bg-[#1A233A] hover:bg-[#FF7A00] text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+                                     >
+                                        {ticket.reply ? "View & Edit Reply" : "Reply Ticket"}
+                                     </button>
+                                  </td>
+                               </tr>
+                            ))
+                         )}
+                      </tbody>
+                   </table>
+                </div>
+             </div>
+          ) : (
+             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex h-[600px]">
+                {/* Left sidebar - Chat Channels */}
+                <div className="w-80 border-r border-gray-200 flex flex-col h-full bg-gray-50/20">
+                   <div className="p-4 border-b border-gray-100">
+                      <h3 className="font-bold text-sm text-[#1A233A] text-right">المحادثات النشطة</h3>
+                   </div>
+                   <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                      {chatChannels.length === 0 ? (
+                         <p className="text-gray-400 text-xs text-center py-8">لا توجد قنوات دردشة نشطة</p>
+                      ) : (
+                         chatChannels.map((chan) => {
+                            const isSelected = selectedChannel?.id === chan.id;
+                            return (
+                               <div
+                                  key={chan.id}
+                                  onClick={() => setSelectedChannel(chan)}
+                                  className={`p-3 rounded-xl cursor-pointer border text-right transition-all flex flex-col ${isSelected ? "bg-[#FF7A00]/10 border-[#FF7A00] text-[#FF7A00]" : "bg-white border-gray-100 text-gray-700 hover:bg-gray-50"}`}
+                               >
+                                  <div className="flex justify-between items-center">
+                                     <span className="font-bold text-xs line-clamp-1">{chan.creator_id}</span>
+                                     <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${chan.type === 'customer_support' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-[#FF7A00]'}`}>
+                                        {chan.type === 'customer_support' ? 'عميل' : 'بائع'}
+                                     </span>
+                                  </div>
+                                  <p className="text-gray-400 text-[10px] mt-1 line-clamp-1">{chan.subject}</p>
+                               </div>
+                            );
+                         })
+                      )}
+                   </div>
+                </div>
+
+                {/* Right side - Chat Messages */}
+                <div className="flex-1 flex flex-col h-full bg-white">
+                   {selectedChannel ? (
+                      <>
+                         {/* Selected Channel Header */}
+                         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/20">
+                            <div>
+                               <h4 className="font-bold text-sm text-[#1A233A] text-right">تواصل مع: {selectedChannel.creator_id}</h4>
+                               <p className="text-xs text-gray-400 mt-0.5 text-right">{selectedChannel.subject}</p>
+                            </div>
+                         </div>
+
+                         {/* Messages List */}
+                         <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50/30 flex flex-col text-xs">
+                            {chatMessages.length === 0 ? (
+                               <p className="text-gray-400 text-center italic my-auto">لا توجد رسائل بعد</p>
+                            ) : (
+                               chatMessages.map((msg, i) => {
+                                  const isMe = msg.sender_role === 'admin';
+                                  return (
+                                     <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[70%] rounded-2xl p-3 leading-relaxed shadow-sm ${
+                                           isMe ? 'bg-[#FF7A00] text-white rounded-tr-none' : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
+                                        }`}>
+                                           {msg.message && <p className="text-right">{msg.message}</p>}
+                                           {msg.audio_data && (
+                                              <audio src={msg.audio_data} controls className="h-8 w-44 mt-1 bg-black/5 rounded outline-none" />
+                                           )}
+                                           <div className="flex justify-between gap-4 mt-1 opacity-70 text-[8px]">
+                                              <span>{msg.sender_name} ({msg.sender_role})</span>
+                                              <span>{new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                           </div>
+                                        </div>
+                                     </div>
+                                  );
+                               })
+                            )}
+                            <div ref={chatEndRef} />
+                         </div>
+
+                         {/* Input Area */}
+                         {selectedChannel.status === "open" ? (
+                            <form onSubmit={(e) => handleSendChatMessage(e)} className="p-3 border-t border-gray-100 flex gap-2 items-center bg-white">
+                               <input 
+                                  type="text" 
+                                  value={chatInput} 
+                                  disabled={isRecording}
+                                  onChange={e => setChatInput(e.target.value)} 
+                                  placeholder={isRecording ? "جاري تسجيل الصوت..." : "اكتب ردك هنا..."} 
+                                  className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-xs outline-none focus:ring-1 focus:ring-[#FF7A00] text-[#1A233A] font-bold" 
+                               />
+
+                               {isRecording ? (
+                                  <div className="flex items-center gap-1 bg-red-50 text-red-500 px-2 py-1 rounded-lg border border-red-100 text-[10px]">
+                                     <span className="font-mono">{formatDuration(recordingDuration)}</span>
+                                     <button type="button" onClick={stopRecording} className="hover:bg-red-100 p-0.5 rounded">
+                                        <Square className="w-2.5 h-2.5" />
+                                     </button>
+                                  </div>
+                               ) : (
+                                  <button type="button" onClick={startRecording} className="p-2 bg-gray-50 hover:bg-[#FF7A00]/10 text-gray-400 hover:text-[#FF7A00] rounded-xl transition-all">
+                                     <Mic className="w-4 h-4" />
+                                  </button>
+                               )}
+
+                               <button type="submit" disabled={isRecording} className="bg-[#FF7A00] hover:bg-[#FF9900] text-white p-2 rounded-xl transition-colors">
+                                  <Send className="w-4 h-4" />
+                               </button>
+                            </form>
+                         ) : (
+                            <div className="p-3 bg-gray-50 text-center text-gray-400 text-xs font-bold border-t border-gray-100">
+                               تم إغلاق هذه القناة
+                            </div>
+                         )}
+                      </>
+                   ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50/20">
+                         <MessageSquare className="w-12 h-12 text-gray-300 mb-2" />
+                         <h4 className="font-bold text-sm text-[#1A233A]">لوحة المحادثات المباشرة</h4>
+                         <p className="text-gray-400 text-xs mt-1">اختر إحدى المحادثات من القائمة الجانبية لبدء التواصل.</p>
+                      </div>
+                   )}
+                </div>
+             </div>
+          )}
       </main>
 
       {/* Reply Modal */}
@@ -319,6 +634,48 @@ export default function AdminDashboard() {
                            {submittingReply ? "Sending Response..." : "Send Response"}
                         </button>
                         <button type="button" onClick={() => setSelectedTicket(null)} className="text-gray-500 font-bold hover:underline text-sm">Cancel</button>
+                     </div>
+                  </form>
+               </motion.div>
+            </div>
+         )}
+      </AnimatePresence>
+
+      {/* Broadcast Modal */}
+      <AnimatePresence>
+         {broadcastOpen && (
+            <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+               <motion.div 
+                 initial={{opacity: 0, scale: 0.95}}
+                 animate={{opacity: 1, scale: 1}}
+                 exit={{opacity: 0, scale: 0.95}}
+                 className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 space-y-6 shadow-2xl relative"
+               >
+                  <button onClick={() => setBroadcastOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                     <X className="w-6 h-6" />
+                  </button>
+                  <div>
+                     <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Broadcast Message</span>
+                     <h3 className="text-xl font-bold text-[#1A233A] mt-1">إرسال رسالة جماعية لكافة العملاء</h3>
+                  </div>
+
+                  <form onSubmit={handleBroadcast} className="space-y-4">
+                     <div className="space-y-2">
+                        <label className="text-sm font-bold text-gray-500">نص الرسالة الجماعية</label>
+                        <textarea 
+                           required 
+                           value={broadcastMsg} 
+                           onChange={e => setBroadcastMsg(e.target.value)} 
+                           placeholder="اكتب الإعلان أو التنبيه هنا..." 
+                           rows={5} 
+                           className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FF7A00] focus:ring-2 focus:ring-[#FF7A00]/20 transition-all text-sm font-bold text-[#1A233A]"
+                        />
+                     </div>
+                     <div className="flex gap-4">
+                        <button type="submit" disabled={submittingBroadcast} className="bg-[#FF7A00] hover:bg-[#FF9900] text-white px-6 py-3 rounded-xl font-bold text-sm transition-colors shadow-md disabled:opacity-50">
+                           {submittingBroadcast ? "جاري الإرسال..." : "إرسال الإعلان"}
+                        </button>
+                        <button type="button" onClick={() => setBroadcastOpen(false)} className="text-gray-500 font-bold hover:underline text-sm">إلغاء</button>
                      </div>
                   </form>
                </motion.div>

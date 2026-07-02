@@ -84,8 +84,12 @@ export default function Header() {
                </Link>
             ) : (
                <Link href="/profile" className="hidden md:flex items-center gap-2 text-[#1A233A] hover:text-[#FF7A00] transition-colors p-2 rounded-xl hover:bg-gray-50 group">
-                  <div className="w-8 h-8 rounded-full bg-[#FF7A00]/10 flex items-center justify-center text-[#FF7A00] font-bold text-sm">
-                     {user.name.charAt(0).toUpperCase()}
+                  <div className="w-8 h-8 rounded-full bg-[#FF7A00]/10 flex items-center justify-center text-[#FF7A00] font-bold text-sm overflow-hidden">
+                     {user.avatar ? (
+                        <img src={user.avatar} className="w-full h-full object-cover" alt={user.name} />
+                     ) : (
+                        user.name.charAt(0).toUpperCase()
+                     )}
                   </div>
                   <div className="flex flex-col">
                      <span className="text-[10px] text-gray-500 font-medium leading-tight">Account</span>
@@ -150,8 +154,12 @@ export default function Header() {
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-[#1A233A] to-[#2a3759]">
               {user ? (
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#FF7A00] flex items-center justify-center text-white font-bold text-lg">
-                    {user.name.charAt(0).toUpperCase()}
+                  <div className="w-10 h-10 rounded-full bg-[#FF7A00] flex items-center justify-center text-white font-bold text-lg overflow-hidden">
+                     {user.avatar ? (
+                        <img src={user.avatar} className="w-full h-full object-cover" alt={user.name} />
+                     ) : (
+                        user.name.charAt(0).toUpperCase()
+                     )}
                   </div>
                   <div>
                     <p className="text-white font-bold text-sm leading-tight">{user.name}</p>

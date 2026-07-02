@@ -91,10 +91,12 @@ export default function CustomersManagement() {
                                  <span className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-full ${
                                     user.role === 'super_admin' ? 'bg-red-100 text-red-700' :
                                     user.role === 'seller' ? 'bg-[#FF7A00]/10 text-[#FF7A00]' :
+                                    user.role === 'support' ? 'bg-blue-100 text-blue-700' :
                                     'bg-gray-100 text-gray-600'
                                  }`}>
                                     {user.role === 'super_admin' && <ShieldAlert className="w-3 h-3" />}
                                     {user.role === 'seller' && <Store className="w-3 h-3" />}
+                                    {user.role === 'support' && <Users className="w-3 h-3" />}
                                     {user.role.replace('_', ' ').toUpperCase()}
                                  </span>
                               </td>
@@ -106,6 +108,7 @@ export default function CustomersManagement() {
                                  >
                                     <option value="customer">Customer</option>
                                     <option value="seller">Seller</option>
+                                    <option value="support">Support Agent</option>
                                     <option value="super_admin">Super Admin</option>
                                  </select>
                               </td>

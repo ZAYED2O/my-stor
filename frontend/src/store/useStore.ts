@@ -22,6 +22,7 @@ export interface User {
   email: string;
   role?: string;
   isSeller?: boolean;
+  avatar?: string;
 }
 
 export interface Address {

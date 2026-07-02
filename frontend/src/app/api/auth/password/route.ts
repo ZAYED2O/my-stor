@@ -28,6 +28,10 @@ export async function PATCH(req: Request) {
       updates.name = name;
     }
 
+    if (body.avatar !== undefined) {
+      updates.avatar = body.avatar;
+    }
+
     if (newPassword) {
       if (!oldPassword) {
         return NextResponse.json({ error: 'Old password is required to set new password' }, { status: 400 });
@@ -58,7 +62,7 @@ export async function PATCH(req: Request) {
     // Fetch updated user to return
     const { data: updatedUser } = await supabase
       .from('ec_users')
-      .select('id, name, email, role')
+      .select('id, name, email, role, avatar')
       .eq('email', email)
       .single();
 
