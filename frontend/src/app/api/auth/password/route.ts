@@ -76,3 +76,40 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { email, newPassword } = body;
+
+    if (!email || !newPassword) {
+      return NextResponse.json({ error: 'Email and new password are required' }, { status: 400 });
+    }
+
+    const { data: user, error } = await supabase
+      .from('ec_users')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (error || !user) {
+      return NextResponse.json({ error: 'User with this email not found' }, { status: 404 });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    const { error: updateError } = await supabase
+      .from('ec_users')
+      .update({ password: hashedPassword })
+      .eq('email', email);
+
+    if (updateError) {
+      return NextResponse.json({ error: 'Could not reset password' }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: 'Password reset successfully' }, { status: 200 });
+  } catch (error) {
+    console.error('POST /api/auth/password error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}

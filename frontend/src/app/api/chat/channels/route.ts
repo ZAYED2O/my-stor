@@ -43,16 +43,16 @@ export async function POST(req: Request) {
     }
 
     // Check if channel already exists to prevent duplicates for active chat session
-    const { data: existing } = await supabase
+    const { data: existingList, error: findError } = await supabase
       .from('ec_chat_channels')
       .select('*')
       .eq('type', type)
       .eq('creator_id', creator_id)
       .eq('status', 'open')
-      .maybeSingle();
+      .limit(1);
 
-    if (existing) {
-      return NextResponse.json({ channel: existing }, { status: 200 });
+    if (existingList && existingList.length > 0) {
+      return NextResponse.json({ channel: existingList[0] }, { status: 200 });
     }
 
     const { data: channel, error } = await supabase

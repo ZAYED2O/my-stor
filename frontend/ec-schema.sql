@@ -37,13 +37,48 @@ CREATE TABLE IF NOT EXISTS ec_orders (
   "createdAt" TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 4. Support Tickets table
+CREATE TABLE IF NOT EXISTS ec_tickets (
+  id TEXT PRIMARY KEY,
+  "customerEmail" TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  message TEXT NOT NULL,
+  reply TEXT,
+  status TEXT NOT NULL DEFAULT 'Open',
+  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. Chat Channels table (for live support chat)
+CREATE TABLE IF NOT EXISTS ec_chat_channels (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type TEXT NOT NULL,
+  subject TEXT,
+  creator_id TEXT NOT NULL,
+  participant_id TEXT,
+  status TEXT NOT NULL DEFAULT 'open',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. Chat Messages table
+CREATE TABLE IF NOT EXISTS ec_chat_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel_id UUID NOT NULL REFERENCES ec_chat_channels(id) ON DELETE CASCADE,
+  sender_id TEXT NOT NULL,
+  sender_name TEXT NOT NULL,
+  sender_role TEXT NOT NULL,
+  message TEXT,
+  audio_data TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Seed admin user (password: admin123)
 INSERT INTO ec_users (id, name, email, password, role)
 VALUES (
   'admin-001',
   'مدير النظام',
   'admin@zayed.com',
-  '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+  '$2b$10$t1SYmazDjcnrOCNVtYh.qOmMVcdzADfvguYU1maMCK3PBGOpunU7.',
   'super_admin'
 ) ON CONFLICT (id) DO NOTHING;
 

@@ -755,18 +755,20 @@ export default function CustomerProfile() {
       <main className="flex-1 max-w-[1200px] w-full mx-auto px-4 md:px-8 py-8 md:py-12 relative">
          
          {/* Profile Banner */}
-         <div className="bg-[#1A233A] rounded-3xl p-8 mb-8 flex items-center gap-6 shadow-xl relative overflow-hidden">
+         <div className="bg-[#1A233A] rounded-3xl p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-center text-center sm:text-left gap-6 shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#FF7A00] opacity-10 blur-3xl rounded-full"></div>
-            <div className="w-24 h-24 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center text-white relative z-10 border border-white/20 overflow-hidden">
+            
+            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center text-white relative z-10 border border-white/20 overflow-hidden">
                {user.avatar ? (
                   <img src={user.avatar} className="w-full h-full object-cover" alt={user.name} />
                ) : (
-                  <UserCircle className="w-12 h-12" />
+                  <UserCircle className="w-10 h-10 sm:w-12 sm:h-12" />
                )}
             </div>
+            
             <div className="relative z-10 flex-1">
-               <h1 className="text-3xl font-extrabold text-white">{user.name}</h1>
-               <p className="text-gray-400 mt-1">{user.email}</p>
+               <h1 className="text-2xl sm:text-3xl font-extrabold text-white">{user.name}</h1>
+               <p className="text-gray-400 text-sm mt-1">{user.email}</p>
                <span className="inline-block mt-3 px-3 py-1 bg-[#FF7A00] text-white text-xs font-bold rounded-full uppercase tracking-wider shadow-md">
                   Zayed VIP
                </span>
@@ -774,10 +776,10 @@ export default function CustomerProfile() {
             
             <button 
                onClick={handleLogout}
-               className="relative z-10 bg-white/10 hover:bg-red-500/20 text-white hover:text-red-400 border border-white/20 hover:border-red-500/50 px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all"
+               className="relative z-10 bg-red-600/20 sm:bg-white/10 hover:bg-red-500/20 text-white hover:text-red-400 border border-red-500/30 sm:border-white/20 hover:border-red-500/50 px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all w-full sm:w-auto justify-center"
             >
                <LogOut className="w-5 h-5" />
-               <span className="hidden sm:inline">Sign Out</span>
+               <span className="inline">تسجيل الخروج</span>
             </button>
          </div>
          

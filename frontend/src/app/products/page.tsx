@@ -14,7 +14,12 @@ function ProductGrid({ categoryFilter, maxPrice }: { categoryFilter: string, max
   const toggleWishlist = useStore((state) => state.toggleWishlist);
   const isInWishlist = (id: string) => wishlist.some(p => p.id === id);
   const searchParams = useSearchParams();
-  const query = searchParams.get('q');
+  let query = searchParams.get('q');
+  if (query) {
+     try {
+        query = decodeURIComponent(query);
+     } catch (e) {}
+  }
   
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
