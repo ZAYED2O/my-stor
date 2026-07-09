@@ -175,14 +175,12 @@ export const useStore = create<StoreState>()(
     }),
     {
       name: 'enterprise-commerce-storage',
-      // Don't persist productsLoaded to always refetch on new session
+      // Don't persist products and productsLoaded to always refetch on new session
       partialize: (state) => ({
         cart: state.cart,
         user: state.user,
         isAdminAuth: state.isAdminAuth,
         isSellerAuth: state.isSellerAuth,
-        products: state.products,
-        productsLoaded: state.productsLoaded,
         wishlist: state.wishlist,
         addresses: state.addresses,
       }),

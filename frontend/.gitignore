@@ -39,3 +39,5 @@ Thumbs.db
 next-env.d.ts
 
 .vercel
+.env.vercel*
+*.js
