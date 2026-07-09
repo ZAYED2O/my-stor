@@ -74,11 +74,13 @@ function ProductGrid({ categoryFilter, maxPrice }: { categoryFilter: string, max
               </div>
            ) : (
            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredProducts.map((product) => (
+              {filteredProducts.map((product) => {
+                const isUrl = product.image.startsWith('data:') || product.image.startsWith('http') || product.image.startsWith('/');
+                return (
                 <div key={product.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-xl hover:border-[#FF7A00]/30 transition-all group flex flex-col">
                   {/* Image Area */}
                   <div className="aspect-square bg-gray-50 rounded-xl flex items-center justify-center text-7xl mb-4 relative overflow-hidden p-4 group-hover:bg-gray-100 transition-colors">
-                     {product.image.startsWith('data:') ? (
+                     {isUrl ? (
                         <img src={product.image} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" />
                      ) : (
                         <span className="group-hover:scale-110 transition-transform duration-300">{product.image}</span>
@@ -118,7 +120,8 @@ function ProductGrid({ categoryFilter, maxPrice }: { categoryFilter: string, max
                      </div>
                   </div>
                 </div>
-              ))}
+               );
+              })}
            </div>
            )}
         </div>

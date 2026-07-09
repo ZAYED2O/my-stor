@@ -47,7 +47,7 @@ export default function CartPage() {
                         <div key={item.id} className="p-6 flex flex-col sm:flex-row items-center gap-6 group">
                            {/* Image */}
                            <div className="w-28 h-28 bg-gray-50 rounded-xl flex items-center justify-center text-5xl overflow-hidden p-2">
-                              {item.image.startsWith('data:') ? (
+                              {(item.image.startsWith('data:') || item.image.startsWith('http') || item.image.startsWith('/')) ? (
                                  <img src={item.image} className="w-full h-full object-contain mix-blend-multiply" />
                               ) : (
                                  item.image

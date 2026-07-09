@@ -40,13 +40,18 @@ export default function Home() {
                   </div>
                </div>
 
-               <div className="z-10 hidden md:grid grid-cols-2 gap-4">
-                  {products.slice(0, 2).map(product => (
-                     <div key={product.id} className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 flex flex-col items-center justify-center text-white aspect-square w-48 shadow-xl">
-                        <div className="text-6xl mb-4">{product.image.startsWith('data:') ? <img src={product.image} className="w-24 h-24 object-contain rounded" /> : product.image}</div>
-                        <p className="font-bold text-center line-clamp-1">{product.name}</p>
-                     </div>
-                  ))}
+                <div className="z-10 hidden md:grid grid-cols-2 gap-4">
+                  {products.slice(0, 2).map(product => {
+                     const isUrl = product.image.startsWith('data:') || product.image.startsWith('http') || product.image.startsWith('/');
+                     return (
+                        <div key={product.id} className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 flex flex-col items-center justify-center text-white aspect-square w-48 shadow-xl">
+                           <div className="text-6xl mb-4">
+                              {isUrl ? <img src={product.image} className="w-24 h-24 object-contain rounded" /> : product.image}
+                           </div>
+                           <p className="font-bold text-center line-clamp-1">{product.name}</p>
+                        </div>
+                     );
+                  })}
                </div>
             </div>
          </section>
@@ -76,19 +81,21 @@ export default function Home() {
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-               {products.slice(0, 8).map((product, idx) => (
-                  <motion.div 
-                     initial={{opacity: 0, y: 20}} animate={{opacity: 1, y: 0}} transition={{delay: idx * 0.1}}
-                     key={product.id} 
-                     className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-xl hover:border-[#FF7A00]/30 transition-all group flex flex-col"
-                  >
-                     <div className="aspect-square bg-gray-50 rounded-xl flex items-center justify-center text-7xl mb-4 overflow-hidden p-4">
-                        {product.image.startsWith('data:') ? (
-                           <img src={product.image} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" />
-                        ) : (
-                           <span className="group-hover:scale-110 transition-transform">{product.image}</span>
-                        )}
-                     </div>
+               {products.slice(0, 8).map((product, idx) => {
+                  const isUrl = product.image.startsWith('data:') || product.image.startsWith('http') || product.image.startsWith('/');
+                  return (
+                     <motion.div 
+                        initial={{opacity: 0, y: 20}} animate={{opacity: 1, y: 0}} transition={{delay: idx * 0.1}}
+                        key={product.id} 
+                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-xl hover:border-[#FF7A00]/30 transition-all group flex flex-col"
+                     >
+                        <div className="aspect-square bg-gray-50 rounded-xl flex items-center justify-center text-7xl mb-4 overflow-hidden p-4">
+                           {isUrl ? (
+                              <img src={product.image} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" />
+                           ) : (
+                              <span className="group-hover:scale-110 transition-transform">{product.image}</span>
+                           )}
+                        </div>
                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1">{product.category}</span>
                      <h3 className="font-bold text-[#1A233A] line-clamp-1 mb-2">{product.name}</h3>
                      <div className="mt-auto flex items-center justify-between pt-4 border-t border-gray-50">

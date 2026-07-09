@@ -163,7 +163,14 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
           <label className="border-2 border-dashed border-border rounded-xl p-12 flex flex-col items-center justify-center text-center hover:bg-muted/50 transition cursor-pointer group relative overflow-hidden h-64">
              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
              {formData.image ? (
-                <img src={formData.image.startsWith('data:') ? formData.image : ''} alt="Preview" className="absolute inset-0 w-full h-full object-cover bg-background" />
+                (() => {
+                   const isUrl = formData.image.startsWith('data:') || formData.image.startsWith('http') || formData.image.startsWith('/');
+                   return isUrl ? (
+                      <img src={formData.image} alt="Preview" className="absolute inset-0 w-full h-full object-cover bg-background" />
+                   ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-8xl bg-background">{formData.image}</div>
+                   );
+                })()
              ) : (
                <>
                  <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -172,9 +179,6 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
                  <p className="font-medium">Click to upload image</p>
                  <p className="text-sm text-muted-foreground mt-1">SVG, PNG, JPG or GIF</p>
                </>
-             )}
-             {!formData.image.startsWith('data:') && formData.image && (
-                <div className="absolute inset-0 flex items-center justify-center text-8xl bg-background">{formData.image}</div>
              )}
           </label>
         </div>

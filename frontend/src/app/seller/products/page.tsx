@@ -78,12 +78,14 @@ export default function SellerProducts() {
                </tr>
              </thead>
              <tbody className="divide-y divide-border">
-                {myProducts.map((product) => (
+                {myProducts.map((product) => {
+                  const isUrl = product.image.startsWith('data:') || product.image.startsWith('http') || product.image.startsWith('/');
+                  return (
                   <tr key={product.id} className="hover:bg-muted/20 transition-colors">
                      <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
                            <div className="w-12 h-12 rounded bg-muted flex items-center justify-center text-2xl overflow-hidden shrink-0">
-                              {product.image.startsWith('data:') ? (
+                              {isUrl ? (
                                 <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
                               ) : (
                                 product.image
@@ -100,7 +102,8 @@ export default function SellerProducts() {
                         <button onClick={() => handleDelete(product.id, product.name)} className="p-2 hover:bg-destructive/10 text-destructive rounded transition"><Trash2 className="w-4 h-4" /></button>
                      </td>
                   </tr>
-                ))}
+                );
+               })}
              </tbody>
            </table>
          )}

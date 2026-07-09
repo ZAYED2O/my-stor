@@ -410,7 +410,12 @@ export default function CustomerProfile() {
                orders.map((order) => (
                  <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col sm:flex-row gap-6">
                     <div className="w-24 h-24 bg-gray-50 rounded-xl flex items-center justify-center text-4xl p-2 overflow-hidden flex-shrink-0">
-                       {order.items[0]?.image.startsWith('data:') ? <img src={order.items[0]?.image} className="w-full h-full object-contain mix-blend-multiply" /> : order.items[0]?.image || '📦'}
+                       {(() => {
+                           const img = order.items[0]?.image;
+                           if (!img) return '📦';
+                           const isUrl = img.startsWith('data:') || img.startsWith('http') || img.startsWith('/');
+                           return isUrl ? <img src={img} className="w-full h-full object-contain mix-blend-multiply" /> : img;
+                        })()}
                     </div>
                     <div className="flex-1 flex flex-col justify-between">
                        <div>
@@ -590,7 +595,10 @@ export default function CustomerProfile() {
                            <Heart className="w-4 h-4 fill-current" />
                         </button>
                         <div className="aspect-square bg-gray-50 rounded-xl flex items-center justify-center text-5xl mb-4 overflow-hidden p-2">
-                           {item.image.startsWith('data:') ? <img src={item.image} className="w-full h-full object-contain mix-blend-multiply" /> : item.image}
+                           {(() => {
+                               const isUrl = item.image.startsWith('data:') || item.image.startsWith('http') || item.image.startsWith('/');
+                               return isUrl ? <img src={item.image} className="w-full h-full object-contain mix-blend-multiply" /> : item.image;
+                            })()}
                         </div>
                         <h3 className="font-bold text-[#1A233A] text-base line-clamp-1 mb-1">{item.name}</h3>
                         <p className="text-lg font-extrabold text-[#FF7A00] mb-4">${item.price.toFixed(2)}</p>

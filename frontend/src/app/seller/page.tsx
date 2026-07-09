@@ -186,10 +186,12 @@ export default function SellerDashboard() {
                <Link href="/seller/products" className="text-[#FF7A00] font-bold text-sm hover:underline">View All</Link>
             </div>
             <div className="space-y-4">
-               {products.slice(0, 3).map(product => (
+               {products.slice(0, 3).map(product => {
+                  const isUrl = product.image.startsWith('data:') || product.image.startsWith('http') || product.image.startsWith('/');
+                  return (
                   <div key={product.id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-2xl overflow-hidden p-1">
-                        {product.image.startsWith('data:') ? <img src={product.image} className="w-full h-full object-contain mix-blend-multiply" /> : product.image}
+                        {isUrl ? <img src={product.image} className="w-full h-full object-contain mix-blend-multiply" /> : product.image}
                      </div>
                      <div className="flex-1">
                         <p className="font-bold text-[#1A233A] text-sm line-clamp-1">{product.name}</p>
@@ -197,7 +199,8 @@ export default function SellerDashboard() {
                      </div>
                      <span className="font-bold text-[#1A233A]">${product.price.toFixed(2)}</span>
                   </div>
-               ))}
+               );
+              })}
          </div>
       </div>
       </div>
