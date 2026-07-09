@@ -105,7 +105,8 @@ export default function Home() {
                         </Link>
                      </div>
                   </motion.div>
-               ))}
+                  );
+               })}
             </div>
          </section>
       </main>
