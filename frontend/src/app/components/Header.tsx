@@ -10,6 +10,7 @@ export default function Header() {
   const cart = useStore((state) => state.cart);
   const user = useStore((state) => state.user);
   const logout = useStore((state) => state.logout);
+  const lang = useStore((state) => state.lang);
   const [isMounted, setIsMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -219,10 +220,10 @@ export default function Header() {
                       closeMobileMenu();
                       router.push("/");
                     }}
-                    className="w-full flex items-center gap-3 px-5 py-3.5 text-red-600 hover:bg-red-50 transition-colors font-medium text-sm text-left"
+                    className={`w-full flex items-center gap-3 px-5 py-3.5 text-red-600 hover:bg-red-50 transition-colors font-medium text-sm ${lang === 'ar' ? 'text-right flex-row-reverse justify-end' : 'text-left'}`}
                   >
                     <LogOut className="w-5 h-5 text-red-500" />
-                    Sign Out
+                    {lang === 'ar' ? "تسجيل الخروج" : "Sign Out"}
                   </button>
                 </>
               ) : (

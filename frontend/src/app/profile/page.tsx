@@ -37,11 +37,20 @@ export default function CustomerProfile() {
   const [showAddressForm, setShowAddressForm] = useState(false);
 
   // Profile settings states
+  const lang = useStore(state => state.lang);
+  const setLang = useStore(state => state.setLang);
+  const [selectedLang, setSelectedLang] = useState<'ar' | 'en'>(lang);
   const [profileName, setProfileName] = useState(user?.name || "");
   const [profileAvatar, setProfileAvatar] = useState(user?.avatar || "");
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [updatingProfile, setUpdatingProfile] = useState(false);
+
+  useEffect(() => {
+     if (lang) {
+        setSelectedLang(lang);
+     }
+  }, [lang]);
 
   // Support states
   const [tickets, setTickets] = useState<any[]>([]);
@@ -137,7 +146,7 @@ export default function CustomerProfile() {
 
   const handleLogout = () => {
     logout();
-    toast.success("Successfully logged out");
+    toast.success(lang === 'ar' ? "تم تسجيل الخروج بنجاح" : "Successfully logged out");
     router.push("/");
   };
 
@@ -145,6 +154,7 @@ export default function CustomerProfile() {
     e.preventDefault();
     setUpdatingProfile(true);
     try {
+      setLang(selectedLang);
       const res = await fetch("/api/auth/password", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -159,14 +169,14 @@ export default function CustomerProfile() {
       const data = await res.json();
       if (res.ok) {
         login(data.user);
-        toast.success("Profile updated successfully!");
+        toast.success(selectedLang === 'ar' ? "تم تحديث الحساب بنجاح!" : "Profile updated successfully!");
         setOldPassword("");
         setNewPassword("");
       } else {
-        toast.error(data.error || "Update failed");
+        toast.error(selectedLang === 'ar' ? (data.error || "فشل التحديث") : (data.error || "Update failed"));
       }
     } catch (err) {
-      toast.error("Error connecting to server");
+      toast.error(selectedLang === 'ar' ? "خطأ في الاتصال بالخادم" : "Error connecting to server");
     } finally {
       setUpdatingProfile(false);
     }
@@ -620,7 +630,9 @@ export default function CustomerProfile() {
       case "settings":
          return (
            <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="space-y-6">
-             <h2 className="text-2xl font-bold text-[#1A233A] mb-6">Account Settings</h2>
+             <h2 className="text-2xl font-bold text-[#1A233A] mb-6">
+                {selectedLang === 'ar' ? "إعدادات الحساب" : "Account Settings"}
+             </h2>
              <form onSubmit={handleUpdateProfile} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6 max-w-xl">
                 {/* Avatar Upload */}
                 <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
@@ -633,39 +645,61 @@ export default function CustomerProfile() {
                    </div>
                    <div>
                       <label className="bg-[#1A233A] hover:bg-[#FF7A00] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer inline-block shadow-sm">
-                         Upload Photo
+                         {selectedLang === 'ar' ? "رفع صورة" : "Upload Photo"}
                          <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
                       </label>
-                      <p className="text-gray-400 text-xs mt-1.5">JPG, PNG under 1MB</p>
+                      <p className="text-gray-400 text-xs mt-1.5">
+                         {selectedLang === 'ar' ? "JPG أو PNG أقل من 1 ميجابايت" : "JPG, PNG under 1MB"}
+                      </p>
                    </div>
                 </div>
 
                 <div className="space-y-2">
-                   <label className="text-sm font-bold text-gray-500">Full Name</label>
+                   <label className="text-sm font-bold text-gray-500">
+                      {selectedLang === 'ar' ? "الاسم الكامل" : "Full Name"}
+                   </label>
                    <input required type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FF7A00] focus:ring-2 focus:ring-[#FF7A00]/20 transition-all text-sm font-bold text-[#1A233A]" />
                 </div>
                 
-                <div className="space-y-2">
-                   <label className="text-sm font-bold text-gray-500">Email Address (Read-only)</label>
-                   <input disabled type="email" value={user.email} className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm font-bold text-gray-400 cursor-not-allowed" />
-                </div>
+                 <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500">
+                      {selectedLang === 'ar' ? "البريد الإلكتروني (للقراءة فقط)" : "Email Address (Read-only)"}
+                    </label>
+                    <input disabled type="email" value={user.email} className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm font-bold text-gray-400 cursor-not-allowed" />
+                 </div>
+
+                 <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500">
+                      {selectedLang === 'ar' ? "لغة التطبيق / App Language" : "App Language / لغة التطبيق"}
+                    </label>
+                    <select value={selectedLang} onChange={e => setSelectedLang(e.target.value as 'ar' | 'en')} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FF7A00] focus:ring-2 focus:ring-[#FF7A00]/20 transition-all text-sm font-bold text-[#1A233A]">
+                       <option value="en">English</option>
+                       <option value="ar">العربية</option>
+                    </select>
+                 </div>
 
                 <div className="h-px bg-gray-100 my-4" />
                 
-                <h3 className="font-bold text-[#1A233A] text-lg">Change Password</h3>
+                <h3 className="font-bold text-[#1A233A] text-lg">
+                   {selectedLang === 'ar' ? "تغيير كلمة المرور" : "Change Password"}
+                </h3>
                 
                 <div className="space-y-2">
-                   <label className="text-sm font-bold text-gray-500">Current Password</label>
+                   <label className="text-sm font-bold text-gray-500">
+                      {selectedLang === 'ar' ? "كلمة المرور الحالية" : "Current Password"}
+                   </label>
                    <input type="password" value={oldPassword} onChange={e => setOldPassword(e.target.value)} placeholder="••••••••" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FF7A00] focus:ring-2 focus:ring-[#FF7A00]/20 transition-all text-sm" />
                 </div>
 
                 <div className="space-y-2">
-                   <label className="text-sm font-bold text-gray-500">New Password</label>
-                   <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Minimum 6 characters" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FF7A00] focus:ring-2 focus:ring-[#FF7A00]/20 transition-all text-sm" />
+                   <label className="text-sm font-bold text-gray-500">
+                      {selectedLang === 'ar' ? "كلمة المرور الجديدة" : "New Password"}
+                   </label>
+                   <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder={selectedLang === 'ar' ? "6 أحرف كحد أدنى" : "Minimum 6 characters"} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FF7A00] focus:ring-2 focus:ring-[#FF7A00]/20 transition-all text-sm" />
                 </div>
 
                 <button type="submit" disabled={updatingProfile} className="bg-[#FF7A00] hover:bg-[#FF9900] text-white px-8 py-3.5 rounded-xl font-bold text-sm shadow-md transition-colors disabled:opacity-50">
-                   {updatingProfile ? "Saving Changes..." : "Save Changes"}
+                   {updatingProfile ? (selectedLang === 'ar' ? "جاري الحفظ..." : "Saving Changes...") : (selectedLang === 'ar' ? "حفظ التغييرات" : "Save Changes")}
                 </button>
              </form>
            </motion.div>
@@ -787,7 +821,7 @@ export default function CustomerProfile() {
                className="relative z-10 bg-red-600/20 sm:bg-white/10 hover:bg-red-500/20 text-white hover:text-red-400 border border-red-500/30 sm:border-white/20 hover:border-red-500/50 px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all w-full sm:w-auto justify-center"
             >
                <LogOut className="w-5 h-5" />
-               <span className="inline">تسجيل الخروج</span>
+               <span className="inline">{selectedLang === 'ar' ? "تسجيل الخروج" : "Sign Out"}</span>
             </button>
          </div>
          

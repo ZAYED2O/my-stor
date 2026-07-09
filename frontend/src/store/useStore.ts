@@ -43,6 +43,8 @@ export interface StoreState {
   isAdminAuth: boolean;
   isSellerAuth: boolean;
   productsLoaded: boolean;
+  lang: 'en' | 'ar';
+  setLang: (lang: 'en' | 'ar') => void;
   fetchProducts: (force?: boolean) => Promise<void>;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
@@ -74,6 +76,8 @@ export const useStore = create<StoreState>()(
       isAdminAuth: false,
       isSellerAuth: false,
       productsLoaded: false,
+      lang: 'en',
+      setLang: (lang) => set({ lang }),
       wishlist: [],
       addresses: [
         {
@@ -183,6 +187,7 @@ export const useStore = create<StoreState>()(
         isSellerAuth: state.isSellerAuth,
         wishlist: state.wishlist,
         addresses: state.addresses,
+        lang: state.lang,
       }),
     }
   )
